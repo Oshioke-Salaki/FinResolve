@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, PieChart, Target, Settings, Menu } from "lucide-react";
+import { Home, PieChart, Target, Settings, Menu, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-// import finResolve from "/finResolve.webp"
 
 const navItems = [
   { name: "Home", href: "/dashboard", icon: Home },
+  { name: "Insights", href: "/insights", icon: Sparkles },
   { name: "Analysis", href: "/analysis", icon: PieChart },
   { name: "Goals", href: "/goals", icon: Target },
   { name: "Settings", href: "/settings", icon: Settings },

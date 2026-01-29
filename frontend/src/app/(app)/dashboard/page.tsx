@@ -10,7 +10,8 @@ import { GoalCard } from "@/components/dashboard/GoalCard";
 import { StatementUploadModal } from "@/components/modals/StatementUploadModal";
 import { TrendingUp, Wallet, Upload, MessageSquare } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
-import { generateResponse, getGreeting } from "@/lib/aiLogic";
+import { generateAIResponse } from "@/actions/ai";
+import { getGreeting } from "@/lib/aiLogic";
 import { formatCurrency } from "@/lib/parseInput";
 import { type UploadedTransaction, type SpendingEntry } from "@/lib/types";
 
@@ -108,19 +109,31 @@ function DashboardContent() {
     setMessages((prev) => [...prev, newUserMsg]);
     setIsTyping(true);
 
-    // Generate AI response
-    setTimeout(() => {
-      const response = generateResponse(content, profile);
-      const newAiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response.content,
-        confidence: response.confidence,
-        assumptions: response.assumptions,
-      };
-      setMessages((prev) => [...prev, newAiMsg]);
-      setIsTyping(false);
-    }, 800);
+    // Generate AI response via Server Action (with Opik tracing)
+    setTimeout(async () => {
+      try {
+        const response = await generateAIResponse(content, profile);
+        const newAiMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: response.content,
+          confidence: response.confidence,
+          assumptions: response.assumptions,
+        };
+        setMessages((prev) => [...prev, newAiMsg]);
+      } catch (error) {
+        console.error("Failed to get response", error);
+        const errorMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content:
+            "Sorry, I'm having trouble thinking right now. Please try again.",
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsTyping(false);
+      }
+    }, 100); // Small delay to allow UI update before server call
   };
 
   const handleUploadComplete = (transactions: UploadedTransaction[]) => {
@@ -280,7 +293,7 @@ function DashboardContent() {
           )}
         </div>
 
-        <div>
+        <div className="mt-28">
           <h2 className="text-sm uppercase tracking-wider text-gray-400 font-semibold mb-4">
             Active Goals
           </h2>
@@ -331,7 +344,7 @@ function EmptyState({ onSuggest }: { onSuggest: (q: string) => void }) {
         <MessageSquare className="w-8 h-8 text-primary" />
       </div>
       <h2 className="text-xl font-semibold text-slate-800 mb-2">
-        Hey! Let's talk about your money
+        Hey! Let&rsquo;s talk about your money
       </h2>
       <p className="text-slate-500 max-w-md mb-8">
         Ask me anything about your finances. I&apos;ll help you understand where
