@@ -1,9 +1,48 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const { signIn } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    // Basic validation
+    if (!email.trim()) {
+      setError("Please enter your email");
+      setIsLoading(false);
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password");
+      setIsLoading(false);
+      return;
+    }
+
+    const { error: signInError } = await signIn(email, password);
+
+    if (signInError) {
+      setError(signInError);
+      setIsLoading(false);
+      return;
+    }
+
+    // Redirect to dashboard on success
+    router.push("/dashboard");
+  };
+
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white">
       {/* Left: Form */}
@@ -28,15 +67,24 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+              {error}
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Email Address
             </label>
             <input
               type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               placeholder="john@example.com"
+              disabled={isLoading}
             />
           </div>
           <div>
@@ -45,8 +93,11 @@ export default function LoginPage() {
             </label>
             <input
               type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              placeholder="••••••••"
+              placeholder="Enter your password"
+              disabled={isLoading}
             />
           </div>
 
@@ -66,12 +117,20 @@ export default function LoginPage() {
             </a>
           </div>
 
-          <Link
-            href="/dashboard"
-            className="w-full bg-primary text-white font-semibold py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 flex justify-center items-center"
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-primary text-white font-semibold py-4 rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 flex justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign in
-          </Link>
+            {isLoading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Signing in...
+              </>
+            ) : (
+              "Sign in"
+            )}
+          </button>
         </form>
 
         <p className="mt-8 text-center text-sm text-slate-500">
@@ -88,7 +147,6 @@ export default function LoginPage() {
       {/* Right: Image/Visual */}
       <div className="hidden md:block relative bg-slate-900 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/40 to-slate-900/90 z-10" />
-        {/* Decorative Elements */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-[url('https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?q=80&w=2071&auto=format&fit=crop')] bg-cover bg-center opacity-40 grayscale" />
 
         <div className="relative z-20 h-full flex flex-col justify-end p-20 text-white">

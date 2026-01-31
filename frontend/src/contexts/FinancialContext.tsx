@@ -18,9 +18,11 @@ import {
   createEmptyProfile,
 } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Storage key for localStorage fallback
-const STORAGE_KEY = "finresolve-profile";
+// Storage key for localStorage fallback - per user to prevent cross-user data leakage
+const getStorageKey = (userId: string | null) =>
+  userId ? `finresolve-profile-${userId}` : "finresolve-profile-anonymous";
 
 // Context type
 interface FinancialContextType {
@@ -39,7 +41,7 @@ interface FinancialContextType {
   updateGoal: (id: string, updates: Partial<SavingsGoal>) => void;
   deleteGoal: (id: string) => void;
   mergeUploadedData: (spending: SpendingEntry[]) => void;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<void>;
   setUserName: (name: string) => void;
   resetProfile: () => void;
   calculateDataCompleteness: () => number;
@@ -51,6 +53,7 @@ const FinancialContext = createContext<FinancialContextType | undefined>(
 
 // Provider component
 export function FinancialProvider({ children }: { children: ReactNode }) {
+  const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] =
     useState<UserFinancialProfile>(createEmptyProfile());
   const [isLoading, setIsLoading] = useState(true);
@@ -59,22 +62,28 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   // Load profile from Supabase or localStorage
   useEffect(() => {
     async function loadProfile() {
+      // Wait for auth to finish loading
+      if (authLoading) return;
+
       try {
-        // First, try to get profile ID from localStorage
-        const stored = localStorage.getItem(STORAGE_KEY);
-        let localProfile: UserFinancialProfile | null = null;
+        // If user is authenticated, load their profile from Supabase
+        if (user) {
+          console.log("Loading profile for user:", user.id);
 
-        if (stored) {
-          localProfile = JSON.parse(stored) as UserFinancialProfile;
-        }
-
-        // Try to load from Supabase if we have a profile ID
-        if (localProfile?.id) {
           const { data: dbProfile, error } = await supabase
             .from("profiles")
             .select("*")
-            .eq("id", localProfile.id)
-            .single();
+            .eq("user_id", user.id)
+            .maybeSingle(); // Use maybeSingle to avoid error when no rows
+
+          console.log("Profile query result:", {
+            dbProfile: dbProfile ? {
+              id: dbProfile.id,
+              user_id: dbProfile.user_id,
+              has_completed_onboarding: dbProfile.has_completed_onboarding,
+            } : null,
+            error
+          });
 
           if (dbProfile && !error) {
             // Load related data
@@ -143,22 +152,36 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
             };
 
             setProfile(loadedProfile);
-            // Update localStorage with fresh data
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedProfile));
-            console.log("Loaded profile from Supabase:", loadedProfile.id);
-          } else if (localProfile) {
-            // Supabase failed, use localStorage
-            setProfile(localProfile);
-            console.log("Using localStorage profile (Supabase unavailable)");
+            localStorage.setItem(getStorageKey(user.id), JSON.stringify(loadedProfile));
+            console.log("Loaded profile for user:", user.id);
+          } else {
+            // No profile in Supabase - check localStorage as fallback
+            console.log("No profile in Supabase for user, checking localStorage");
+            const stored = localStorage.getItem(getStorageKey(user.id));
+            if (stored) {
+              const localProfile = JSON.parse(stored) as UserFinancialProfile;
+              console.log("Found localStorage profile, hasCompletedOnboarding:", localProfile.hasCompletedOnboarding);
+              // Use local profile and sync to Supabase
+              setProfile(localProfile);
+            } else {
+              console.log("No profile found anywhere, creating new one");
+              const newProfile = createEmptyProfile();
+              setProfile(newProfile);
+            }
           }
-        } else if (localProfile) {
-          // No Supabase profile yet, use localStorage
-          setProfile(localProfile);
+        } else {
+          // No authenticated user - try localStorage for anonymous usage
+          const stored = localStorage.getItem(getStorageKey(null));
+          if (stored) {
+            const localProfile = JSON.parse(stored) as UserFinancialProfile;
+            setProfile(localProfile);
+            console.log("Using localStorage profile (not authenticated)");
+          }
         }
       } catch (error) {
         console.error("Failed to load financial profile:", error);
         // Try localStorage as fallback
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(getStorageKey(user?.id || null));
         if (stored) {
           setProfile(JSON.parse(stored));
         }
@@ -168,19 +191,40 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     }
 
     loadProfile();
-  }, []);
+  }, [user, authLoading]);
 
   // Save to Supabase and localStorage
   const saveToSupabase = useCallback(
     async (newProfile: UserFinancialProfile) => {
+      if (!user?.id) {
+        // Not authenticated, just save to localStorage
+        localStorage.setItem(getStorageKey(null), JSON.stringify(newProfile));
+        return;
+      }
+
       setIsSyncing(true);
       try {
         // Save to localStorage first (immediate)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+        localStorage.setItem(getStorageKey(user.id), JSON.stringify(newProfile));
 
-        // Upsert profile to Supabase
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: newProfile.id,
+        // First, check if a profile already exists for this user
+        const { data: existingProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const profileId = existingProfile?.id || newProfile.id;
+
+        // Update the local profile with the correct ID if needed
+        if (existingProfile?.id && existingProfile.id !== newProfile.id) {
+          newProfile = { ...newProfile, id: existingProfile.id };
+          localStorage.setItem(getStorageKey(user.id), JSON.stringify(newProfile));
+        }
+
+        const profileData = {
+          id: profileId,
+          user_id: user.id,
           name: newProfile.name || null,
           income_amount: newProfile.income?.amount || null,
           income_confidence: newProfile.income?.confidence || null,
@@ -190,7 +234,17 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           has_completed_onboarding: newProfile.hasCompletedOnboarding,
           data_completeness: newProfile.dataCompleteness,
           updated_at: new Date().toISOString(),
+        };
+        console.log("Saving profile to Supabase:", {
+          id: profileData.id,
+          user_id: profileData.user_id,
+          has_completed_onboarding: profileData.has_completed_onboarding,
         });
+
+        // Use upsert with id as conflict target (primary key)
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert(profileData, { onConflict: "id" });
 
         if (profileError) {
           console.error("Error saving profile to Supabase:", profileError);
@@ -261,7 +315,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         setIsSyncing(false);
       }
     },
-    []
+    [user]
   );
 
   // Debounced save effect
@@ -404,14 +458,18 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  // Complete onboarding
-  const completeOnboarding = useCallback(() => {
-    setProfile((prev) => ({
-      ...prev,
+  // Complete onboarding - saves immediately to prevent navigation interruption
+  const completeOnboarding = useCallback(async () => {
+    const updatedProfile = {
+      ...profile,
       hasCompletedOnboarding: true,
       lastUpdated: new Date().toISOString(),
-    }));
-  }, []);
+    };
+    setProfile(updatedProfile);
+    // Save immediately instead of waiting for debounce
+    await saveToSupabase(updatedProfile);
+    console.log("Onboarding completed and saved to Supabase");
+  }, [profile, saveToSupabase]);
 
   // Set user name
   const setUserName = useCallback((name: string) => {
@@ -427,7 +485,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     const oldProfileId = profile.id;
     const newProfile = createEmptyProfile();
     setProfile(newProfile);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(getStorageKey(user?.id || null));
 
     // Delete from Supabase
     try {
@@ -436,7 +494,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to delete from Supabase:", error);
     }
-  }, [profile.id]);
+  }, [profile.id, user?.id]);
 
   return (
     <FinancialContext.Provider

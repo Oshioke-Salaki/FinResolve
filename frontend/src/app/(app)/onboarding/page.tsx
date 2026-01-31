@@ -297,13 +297,13 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleComplete = () => {
-    completeOnboarding();
+  const handleComplete = async () => {
+    await completeOnboarding();
     router.push("/dashboard");
   };
 
-  const handleSkipToUpload = () => {
-    // TODO: Open upload modal
+  const handleSkipToUpload = async () => {
+    await completeOnboarding();
     router.push("/dashboard?upload=true");
   };
 

@@ -8,8 +8,9 @@ import { SuggestedQuestions } from "@/components/chat/SuggestedQuestions";
 import { SpendingChart } from "@/components/dashboard/SpendingChart";
 import { GoalCard } from "@/components/dashboard/GoalCard";
 import { StatementUploadModal } from "@/components/modals/StatementUploadModal";
-import { TrendingUp, Wallet, Upload, MessageSquare } from "lucide-react";
+import { TrendingUp, Wallet, Upload, MessageSquare, LogOut } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { generateAIResponse } from "@/actions/ai";
 import { getGreeting } from "@/lib/aiLogic";
 import { formatCurrency } from "@/lib/parseInput";
@@ -53,18 +54,24 @@ function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile, mergeUploadedData, isLoading } = useFinancial();
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
 
-  // Redirect to onboarding if not completed
+  // Redirect to onboarding if authenticated user hasn't completed it
   useEffect(() => {
-    if (!isLoading && !profile.hasCompletedOnboarding) {
+    if (!isLoading && user && !profile.hasCompletedOnboarding) {
       router.push("/onboarding");
     }
-  }, [isLoading, profile.hasCompletedOnboarding, router]);
+  }, [isLoading, user, profile.hasCompletedOnboarding, router]);
 
   // Initialize with greeting
   useEffect(() => {
@@ -190,16 +197,34 @@ function DashboardContent() {
       <div className="flex-1 flex flex-col h-full relative">
         {/* Header Area */}
         <header className="px-6 py-4 bg-white/50 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-100 flex justify-between items-center">
-          <h1 className="text-lg font-semibold text-gray-800">
-            Financial Coach
-          </h1>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Upload Statement</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-gray-800">
+              Financial Coach
+            </h1>
+            {user && (
+              <span className="text-xs text-slate-400 hidden sm:inline">
+                {user.email}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-primary hover:bg-primary/5 rounded-xl transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Upload Statement</span>
+            </button>
+            {user && (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Messages */}
