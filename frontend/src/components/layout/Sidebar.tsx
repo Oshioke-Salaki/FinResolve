@@ -6,6 +6,8 @@ import { Home, PieChart, Target, Settings, Menu, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFinancial } from "@/contexts/FinancialContext";
 
 const navItems = [
   { name: "Home", href: "/dashboard", icon: Home },
@@ -18,6 +20,26 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { user } = useAuth();
+  const { profile } = useFinancial();
+
+  // Get display name from profile, user metadata, or email
+  const displayName = profile.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+
+  // Get user initials
+  const getInitials = () => {
+    const name = profile.name || user?.user_metadata?.full_name;
+    if (name) {
+      const names = name.split(" ");
+      return names.length > 1
+        ? `${names[0][0]}${names[1][0]}`.toUpperCase()
+        : names[0].substring(0, 2).toUpperCase();
+    }
+    if (user?.email) {
+      return user.email.substring(0, 2).toUpperCase();
+    }
+    return "U";
+  };
 
   return (
     <>
@@ -95,19 +117,22 @@ export function Sidebar() {
 
           {/* Bottom/User */}
           <div className="mt-auto pt-6 border-t border-border">
-            <div className="flex items-center gap-3 px-2">
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border border-border">
-                <span className="text-sm font-medium text-muted-foreground">
-                  JD
+            <Link
+              href="/settings"
+              className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-muted transition-colors"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-border">
+                <span className="text-sm font-medium text-primary">
+                  {getInitials()}
                 </span>
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">
-                  John Doe
+                <span className="text-sm font-medium text-foreground truncate max-w-[140px]">
+                  {displayName}
                 </span>
                 <span className="text-xs text-muted-foreground">Free Plan</span>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </aside>

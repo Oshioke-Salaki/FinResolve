@@ -7,12 +7,14 @@ import { Sparkles, ArrowRight, Upload, CheckCircle2 } from "lucide-react";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   parseFinancialInput,
   parseMultipleAmounts,
   formatCurrency,
 } from "@/lib/parseInput";
 import { type OnboardingStage, type OnboardingMessage } from "@/lib/types";
+import { answerGeneralQuestion } from "@/actions/onboarding";
 
 // Onboarding stages configuration
 const STAGE_CONFIG: Record<
@@ -20,12 +22,11 @@ const STAGE_CONFIG: Record<
   { prompt: string; followUp?: string }
 > = {
   welcome: {
-    prompt:
-      "Hey there! 👋 I'm your AI financial coach. I'm here to help you understand your money better — no spreadsheets, no complex forms.\n\nTo get started, what should I call you?",
+    prompt: "", // Not used anymore - we skip to income
   },
   income: {
     prompt:
-      'Nice to meet you, {name}! 💫\n\nLet\'s start with the basics. Roughly how much do you earn monthly? Don\'t worry about being exact — estimates like "about ₦300k" or "between ₦200k-400k" work great!',
+      'Hey {name}! 👋 I\'m your AI financial coach. Let\'s get you set up!\n\nFirst, roughly how much do you earn monthly? Don\'t worry about being exact — estimates like "about ₦300k" or "between ₦200k-400k" work great!',
     followUp:
       'Got it! I\'ve noted that down. 📝\n\nNow, what are your biggest monthly expenses? You can list a few, like "I spend about ₦50k on food, ₦30k on transport"',
   },
@@ -47,6 +48,7 @@ const STAGE_CONFIG: Record<
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     profile,
     updateIncome,
@@ -55,13 +57,15 @@ export default function OnboardingPage() {
     completeOnboarding,
     addGoal,
   } = useFinancial();
-  const [stage, setStage] = useState<OnboardingStage>("welcome");
+  const [stage, setStage] = useState<OnboardingStage>("income");
   const [messages, setMessages] = useState<OnboardingMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const [_userName, setLocalUserName] = useState("");
   const [expenseCount, setExpenseCount] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
+
+  // Get display name from email
+  const emailName = user?.email?.split("@")[0] || "there";
 
   const addAssistantMessage = useCallback(
     (content: string) => {
@@ -88,13 +92,17 @@ export default function OnboardingPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Initialize with welcome message
+  // Initialize with income message and set name from email
   useEffect(() => {
-    if (!hasInitialized.current) {
+    if (!hasInitialized.current && emailName) {
       hasInitialized.current = true;
-      addAssistantMessage(STAGE_CONFIG.welcome.prompt);
+      // Set the user's name from their email
+      setUserName(emailName);
+      // Start with the income question
+      const prompt = STAGE_CONFIG.income.prompt.replace("{name}", emailName);
+      addAssistantMessage(prompt);
     }
-  }, [addAssistantMessage]);
+  }, [addAssistantMessage, emailName, setUserName]);
 
   // Check if already onboarded
   useEffect(() => {
@@ -120,9 +128,6 @@ export default function OnboardingPage() {
 
     // Process based on current stage
     switch (stage) {
-      case "welcome":
-        handleNameInput(content);
-        break;
       case "income":
         handleIncomeInput(content);
         break;
@@ -138,22 +143,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const handleNameInput = (content: string) => {
-    const name = content.trim().split(" ")[0]; // Get first name
-    setLocalUserName(name);
-    setUserName(name);
-
-    setTimeout(() => {
-      const prompt = STAGE_CONFIG.income.prompt.replace("{name}", name);
-      addAssistantMessage(prompt);
-      setStage("income");
-    }, 500);
-  };
-
   const handleIncomeInput = (content: string) => {
+    const lowerContent = content.toLowerCase().trim();
+
+    // First, try to parse as income amount
     const parsed = parseFinancialInput(content);
 
     if (parsed.amount) {
+      // Valid income amount - process it
       updateIncome({
         amount: parsed.amount,
         confidence: parsed.confidence,
@@ -169,13 +166,88 @@ export default function OnboardingPage() {
         );
         setStage("expenses");
       }, 500);
-    } else {
-      setTimeout(() => {
-        addAssistantMessage(
-          'I didn\'t quite catch that. Could you tell me your approximate monthly income? Something like "₦300k" or "about 250 thousand" works!',
-        );
-      }, 500);
+      return;
     }
+
+    // Not a valid income amount - respond friendly and redirect
+    // Check if it's a greeting
+    const greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "howdy", "sup", "yo", "hiya"];
+    const isGreeting = greetings.some(g => lowerContent === g || lowerContent.startsWith(g + " ") || lowerContent.startsWith(g + "!") || lowerContent.startsWith(g + ","));
+
+    if (isGreeting) {
+      const greetingResponses = [
+        'Hello! 😊 Great to have you here!\n\nSo, to help you manage your finances better, could you share your approximate monthly income? Something like "₦300k" or "about 250 thousand" works perfectly!',
+        'Hey there! 👋 Nice to meet you!\n\nLet\'s get you set up — what\'s your approximate monthly income? You can say "₦300k", "around 400 thousand", etc.',
+        'Hi! 😄 Welcome!\n\nTo give you the best insights, I\'ll need to know your monthly income. Something like "₦300k" or "about 250k" is perfect!',
+        'Hello! 🌟 Glad you\'re here!\n\nQuick question to get started — roughly how much do you earn per month? For example, "₦300k" or "around 200 thousand".',
+      ];
+      const randomGreeting = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
+
+      setTimeout(() => {
+        addAssistantMessage(randomGreeting);
+      }, 500);
+      return;
+    }
+
+    // Check if it's a question (use AI to answer)
+    const isQuestion = lowerContent.includes("?") ||
+      lowerContent.startsWith("what") ||
+      lowerContent.startsWith("who") ||
+      lowerContent.startsWith("how") ||
+      lowerContent.startsWith("why") ||
+      lowerContent.startsWith("can you") ||
+      lowerContent.startsWith("tell me") ||
+      lowerContent.startsWith("when") ||
+      lowerContent.startsWith("where") ||
+      lowerContent.startsWith("which") ||
+      lowerContent.startsWith("do you") ||
+      lowerContent.startsWith("is there") ||
+      lowerContent.startsWith("are there");
+
+    // Varied redirect phrases
+    const redirects = [
+      `\n\nBy the way, to help you manage your finances, could you share your approximate monthly income? Something like "₦300k" or "about 250 thousand" works!`,
+      `\n\nAnyway, let's get you set up — what's your monthly income? For example, "₦300k" or "around 400k".`,
+      `\n\nSo, for your financial profile — roughly how much do you earn per month? You can say "₦300k", "about 250 thousand", etc.`,
+      `\n\nLet's continue with your setup — what do you make monthly? Something like "₦300k" or "around 200 thousand" is perfect!`,
+    ];
+    const randomRedirect = redirects[Math.floor(Math.random() * redirects.length)];
+
+    if (isQuestion) {
+      // Use AI to answer questions
+      setIsTyping(true);
+      answerGeneralQuestion(content).then((answer) => {
+        setIsTyping(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: answer + randomRedirect,
+            timestamp: new Date().toISOString(),
+            metadata: { stage },
+          },
+        ]);
+      });
+      return;
+    }
+
+    // For any other conversational input (statements like "nice", "okay", "let's talk", etc.)
+    // Use AI to respond naturally
+    setIsTyping(true);
+    answerGeneralQuestion(`The user said: "${content}". Respond briefly and naturally to acknowledge what they said.`).then((answer) => {
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: answer + randomRedirect,
+          timestamp: new Date().toISOString(),
+          metadata: { stage },
+        },
+      ]);
+    });
   };
 
   const handleExpenseInput = (content: string) => {
@@ -307,9 +379,8 @@ export default function OnboardingPage() {
     router.push("/dashboard?upload=true");
   };
 
-  // Progress indicator
+  // Progress indicator (welcome stage is skipped)
   const stages: OnboardingStage[] = [
-    "welcome",
     "income",
     "expenses",
     "goals",
