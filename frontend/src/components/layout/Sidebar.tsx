@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, PieChart, Target, Settings, Menu, Sparkles } from "lucide-react";
+import {
+  Home,
+  PieChart,
+  Target,
+  Settings,
+  Menu,
+  Sparkles,
+  Clock,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,6 +19,7 @@ import { useFinancial } from "@/contexts/FinancialContext";
 
 const navItems = [
   { name: "Home", href: "/dashboard", icon: Home },
+  { name: "Activity", href: "/activity", icon: Clock },
   { name: "Insights", href: "/insights", icon: Sparkles },
   { name: "Analysis", href: "/analysis", icon: PieChart },
   { name: "Goals", href: "/goals", icon: Target },
@@ -24,7 +33,11 @@ export function Sidebar() {
   const { profile } = useFinancial();
 
   // Get display name from profile, user metadata, or email
-  const displayName = profile.name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const displayName =
+    profile.name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "User";
 
   // Get user initials
   const getInitials = () => {

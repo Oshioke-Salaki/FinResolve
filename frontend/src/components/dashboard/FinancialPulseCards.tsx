@@ -173,37 +173,34 @@ export function FinancialPulseCards() {
         title="Safe to Spend"
         value={safeToSpend > 0 ? `${formatCurrency(safeToSpend)}/day` : "—"}
         subtitle={
-          daysRemaining > 0
-            ? `${daysRemaining} days left this month`
-            : "Month ending"
+          burnRate > 0
+            ? `Avg. spending: ${formatCurrency(burnRate)}/day (${burnRate <= safeToSpend ? "On track" : "High"})`
+            : `${daysRemaining} days left this month`
         }
         icon={<ShieldCheck className="w-5 h-5 text-blue-600" />}
         trend={
-          budgetRemaining > 0 ? "up" : budgetRemaining < 0 ? "down" : "neutral"
+          burnRate === 0 ? "neutral" : burnRate <= safeToSpend ? "up" : "down"
         }
-        trendValue={budgetRemaining >= 0 ? "On track" : "Over budget"}
+        trendValue={
+          burnRate === 0
+            ? "No spending"
+            : burnRate <= safeToSpend
+              ? "Under limit"
+              : "Over limit"
+        }
         color="text-blue-600"
         bgColor="bg-blue-50"
       />
+
       <PulseCard
-        title="Burn Rate"
-        value={burnRate > 0 ? `${formatCurrency(burnRate)}/day` : "—"}
-        subtitle={
-          totalSpending > 0
-            ? `${formatCurrency(totalSpending)} spent so far`
-            : "No spending tracked"
-        }
-        icon={<TrendingDown className="w-5 h-5 text-amber-600" />}
-        trend={spendingTrend}
-        trendValue={
-          spendingTrend === "up"
-            ? "Under budget"
-            : spendingTrend === "down"
-              ? "Over budget"
-              : "On pace"
-        }
-        color="text-amber-600"
-        bgColor="bg-amber-50"
+        title="Total Savings"
+        value={formatCurrency(totalSaved)}
+        subtitle={`${profile.goals.length} active goals`}
+        icon={<TrendingDown className="w-5 h-5 text-purple-600" />}
+        color="text-purple-600"
+        bgColor="bg-purple-50"
+        trend="up"
+        trendValue="Saved"
       />
 
       <AnimatePresence>

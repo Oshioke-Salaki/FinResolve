@@ -55,6 +55,9 @@ export type SpendingCategory =
   | "savings"
   | "family"
   | "debt"
+  | "salary"
+  | "business"
+  | "gift"
   | "other";
 
 // Individual spending entry
@@ -70,6 +73,8 @@ export interface SpendingEntry {
   accountId?: string;
   isRecurring?: boolean;
   type?: "expense" | "income" | "transfer";
+  createdAt?: string;
+  destinationAccountId?: string;
 }
 
 // Income information
@@ -194,7 +199,12 @@ export interface ChatMessage {
 }
 
 // AI Action types
-export type AIActionType = "LOG_EXPENSE" | "UPDATE_GOAL";
+export type AIActionType =
+  | "LOG_EXPENSE"
+  | "LOG_INCOME"
+  | "UPDATE_GOAL"
+  | "LOG_TRANSFER"
+  | "CREATE_GOAL";
 
 export interface AIAction {
   type: AIActionType;
@@ -206,6 +216,32 @@ export interface LogExpensePayload {
   category: SpendingCategory;
   description: string;
   accountId?: string;
+}
+
+export interface LogIncomePayload {
+  amount: number;
+  category: SpendingCategory;
+  description: string;
+  accountId?: string;
+}
+
+export interface LogTransferPayload {
+  amount: number;
+  sourceAccountId: string;
+  destinationAccountId: string;
+  description?: string;
+}
+
+export interface UpdateGoalPayload {
+  amount: number;
+  goalName: string; // AI tries to fuzzy match this
+  goalId?: string;
+}
+
+export interface CreateGoalPayload {
+  name: string;
+  target: number;
+  deadline?: string;
 }
 
 // Default empty profile
@@ -240,5 +276,8 @@ export const CATEGORY_META: Record<
   savings: { label: "Savings", color: "#22c55e", emoji: "💰" },
   family: { label: "Family & Kids", color: "#f472b6", emoji: "👨‍👩‍👧" },
   debt: { label: "Debt Repayment", color: "#ef4444", emoji: "💳" },
+  salary: { label: "Salary / Income", color: "#16a34a", emoji: "💸" },
+  business: { label: "Business Income", color: "#0891b2", emoji: "💼" },
+  gift: { label: "Gifts", color: "#db2777", emoji: "🎁" },
   other: { label: "Other", color: "#6b7280", emoji: "📦" },
 };

@@ -60,6 +60,7 @@ function DashboardContent() {
     updateGoal,
     addSpending,
     addSpendingSummary,
+    addGoal,
   } = useFinancial();
   const { user } = useAuth();
 
@@ -164,18 +165,91 @@ function DashboardContent() {
 
             // Add detailed entry
             addSpending({
-              id: Date.now().toString(),
+              id: crypto.randomUUID(),
               category: payload.category,
               amount: payload.amount,
               confidence: "high",
               source: "ai",
               description: payload.description,
               date: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
               accountId: payload.accountId,
+              type: "expense",
             });
 
             // Update summary
             addSpendingSummary(payload.category, payload.amount, "high");
+          } else if (action.type === "LOG_INCOME") {
+            const payload = action.payload;
+
+            addSpending({
+              id: crypto.randomUUID(),
+              category: payload.category, // e.g. 'gift', 'salary'
+              amount: payload.amount,
+              confidence: "high",
+              source: "ai",
+              description: payload.description,
+              date: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              accountId: payload.accountId,
+              type: "income",
+            });
+          } else if (action.type === "LOG_TRANSFER") {
+            const payload = action.payload;
+
+            addSpending({
+              id: crypto.randomUUID(),
+              category: "other", // Default category for transfer
+              amount: payload.amount,
+              confidence: "high",
+              source: "ai",
+              description: payload.description || "Transfer",
+              date: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              accountId: payload.sourceAccountId,
+              destinationAccountId: payload.destinationAccountId,
+              type: "transfer",
+            });
+          } else if (action.type === "UPDATE_GOAL") {
+            const payload = action.payload;
+            // 1. Find Goal
+            const goal = profile.goals.find(
+              (g) =>
+                g.id === payload.goalId ||
+                g.name.toLowerCase().includes(payload.goalName.toLowerCase()),
+            );
+
+            if (goal) {
+              // 2. Update Goal Value
+              const newCurrent = goal.current + payload.amount;
+              updateGoal(goal.id, { current: newCurrent });
+
+              // 3. Log as an 'Expense' (money moving from "Safe to spend" to "Goal Safe")
+              // or we can treat it as a transfer if goals are accounts but here they are virtual.
+              // Let's log it as category 'savings'
+              addSpending({
+                id: crypto.randomUUID(),
+                category: "savings",
+                amount: payload.amount,
+                confidence: "high",
+                source: "ai",
+                description: `Saved for ${goal.name}`,
+                date: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                type: "expense", // It IS an expense from the 'available budget' perspective
+              });
+            }
+          } else if (action.type === "CREATE_GOAL") {
+            const payload = action.payload;
+            addGoal({
+              id: crypto.randomUUID(),
+              name: payload.name,
+              target: payload.target,
+              current: 0,
+              deadline: payload.deadline,
+              priority: "medium",
+              createdAt: new Date().toISOString(),
+            });
           }
         }
 

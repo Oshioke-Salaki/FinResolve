@@ -21,13 +21,14 @@ CREATE TABLE profiles (
 CREATE TABLE spending_entries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'utilities', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'other')),
+  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'family', 'debt', 'salary', 'business', 'gift', 'other')),
   amount DECIMAL(15, 2) NOT NULL,
   confidence TEXT DEFAULT 'medium' CHECK (confidence IN ('high', 'medium', 'low')),
-  source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'upload', 'estimated')),
+  source TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'upload', 'estimated', 'ai')),
   description TEXT,
   date DATE,
   merchant_name TEXT,
+  type TEXT DEFAULT 'expense' CHECK (type IN ('expense', 'income', 'transfer')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -35,7 +36,7 @@ CREATE TABLE spending_entries (
 CREATE TABLE spending_summaries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'utilities', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'other')),
+  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'family', 'debt', 'other')),
   total DECIMAL(15, 2) NOT NULL DEFAULT 0,
   confidence TEXT DEFAULT 'medium' CHECK (confidence IN ('high', 'medium', 'low')),
   transaction_count INTEGER DEFAULT 0,

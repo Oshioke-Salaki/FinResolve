@@ -128,7 +128,9 @@ Guidelines:
      ${profile.accounts.map((a) => `${a.name} (ID: ${a.id})`).join(", ")}
   4. THEN, output a JSON action block at the END of your response.
   
-  Format:
+  4. THEN, output a JSON action block at the END of your response.
+  
+  Format for Expenses:
   [[ACTION]]
   {
     "type": "LOG_EXPENSE",
@@ -140,9 +142,71 @@ Guidelines:
     }
   }
   [[/ACTION]]
-  Categories: food, transport, utilities, data_airtime, housing, entertainment, shopping, health, education, savings, family, debt, other.
+
+  Format for Income/Deposits:
+  [[ACTION]]
+  {
+    "type": "LOG_INCOME",
+    "payload": {
+      "amount": 50000,
+      "category": "gift",
+      "description": "Gift from friend",
+      "accountId": "ACCOUNT_ID_HERE"
+    }
+  }
+  [[/ACTION]]
+
+  Format for Transfers:
+  [[ACTION]]
+  {
+    "type": "LOG_TRANSFER",
+    "payload": {
+      "amount": 50000,
+      "sourceAccountId": "SOURCE_ACCOUNT_ID",
+      "destinationAccountId": "DESTINATION_ACCOUNT_ID",
+      "description": "Transfer to savings"
+    }
+  }
+  [[/ACTION]]
+
+  Format for Goals:
+  [[ACTION]]
+  {
+    "type": "UPDATE_GOAL",
+    "payload": {
+      "amount": 10000,
+      "goalName": "Car Savings",
+      "goalId": "GOAL_ID"
+    }
+  }
+  [[/ACTION]]
+
+  Format for Creating Goals:
+  [[ACTION]]
+  {
+    "type": "CREATE_GOAL",
+    "payload": {
+      "name": "New Goal Name",
+      "target": 500000,
+      "deadline": "2024-12-31" // Optional
+    }
+  }
+  [[/ACTION]]
+
+  Categories: 
+  - Expenses: food, transport, utilities, data_airtime, housing, entertainment, shopping, health, education, savings, family, debt, other.
+  - Income: salary, business, gift, other.
   
-  Example Response:
+  Guidelines for Transfers & Goals:
+  - If user says "move 50k from UBA to Kuda", identified "UBA" as source and "Kuda" as destination.
+  - If user says "Add 10k to my Car goal", use UPDATE_GOAL.
+  - If user says "Create a goal for Buying a Laptop with target 500k", use CREATE_GOAL.
+  - List of active Goals:
+    ${profile.goals.map((g) => `- ${g.name} (ID: ${g.id}, Current: ${formatCurrency(g.current)})`).join("\n    ")}
+  - Match account/goal names to IDs in the list above.
+  - If accounts/goals are not found, ask for clarification.
+  
+  Example Response (Expense):
   "Got it! I've logged that from your ${profile.accounts[0]?.name || "account"}. 🍔"
   [[ACTION]]
   {

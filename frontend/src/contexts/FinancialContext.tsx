@@ -170,6 +170,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
                 accountId: e.account_id || undefined,
                 isRecurring: e.is_recurring,
                 type: e.type as "expense" | "income" | "transfer",
+                createdAt: e.created_at,
               })),
               spendingSummary: (summariesRes.data || []).map((s) => ({
                 category: s.category as SpendingCategory,
@@ -632,12 +633,34 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   // Add spending entry
   const addSpending = useCallback((entry: SpendingEntry) => {
     setProfile((prev) => {
-      // If linked to an account, deduct balance
+      // If linked to an account, update balance
       let newAccounts = [...prev.accounts];
-      if (entry.accountId) {
+
+      if (
+        entry.type === "transfer" &&
+        entry.accountId &&
+        entry.destinationAccountId
+      ) {
+        // Transfer Logic: Deduct from Source, Add to Destination
         newAccounts = newAccounts.map((acc) => {
           if (acc.id === entry.accountId) {
             return { ...acc, balance: acc.balance - entry.amount };
+          }
+          if (acc.id === entry.destinationAccountId) {
+            return { ...acc, balance: acc.balance + entry.amount };
+          }
+          return acc;
+        });
+      } else if (entry.accountId) {
+        // Standard Expense/Income Logic
+        newAccounts = newAccounts.map((acc) => {
+          if (acc.id === entry.accountId) {
+            // Expenses decrease balance, Income increases balance
+            if (entry.type === "income") {
+              return { ...acc, balance: acc.balance + entry.amount };
+            } else {
+              return { ...acc, balance: acc.balance - entry.amount };
+            }
           }
           return acc;
         });
