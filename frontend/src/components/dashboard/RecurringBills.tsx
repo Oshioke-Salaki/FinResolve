@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Calendar, Clock, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Plus, Calendar, Clock, AlertTriangle, ArrowRight } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
@@ -9,18 +10,28 @@ import type { RecurringItem, SpendingCategory } from "@/lib/types";
 import { CATEGORY_META } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function RecurringBills() {
+interface RecurringBillsProps {
+  isPreview?: boolean;
+}
+
+export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
   const { profile, addRecurringItem, deleteRecurringItem } = useFinancial();
   const [showAddForm, setShowAddForm] = useState(false);
 
   const items = profile.recurringItems || [];
 
-  // Sort by date (mock logic for now if no date)
+  // Sort logic
   const sortedItems = [...items].sort((a, b) => {
-    // Just sort by amount for now as improved sorting needs date parsing logic
+    // If we have nextDueDate, sort by it
+    if (a.nextDueDate && b.nextDueDate) {
+      return (
+        new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime()
+      );
+    }
     return b.amount - a.amount;
   });
 
+  const displayItems = isPreview ? sortedItems.slice(0, 3) : sortedItems;
   const totalMonthly = items.reduce((sum, item) => sum + item.amount, 0);
 
   return (
@@ -31,23 +42,39 @@ export function RecurringBills() {
             <Calendar className="w-4 h-4 text-purple-500" />
           </div>
           <h2 className="text-lg font-semibold text-slate-800">
-            Subscriptions
+            {isPreview ? "Next Bills" : "Subscriptions"}
           </h2>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-full transition-colors"
-        >
-          + Add
-        </button>
+
+        {isPreview ? (
+          <Link
+            href="/budgets"
+            className="flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-700 transition-colors bg-purple-50 px-3 py-1.5 rounded-full"
+          >
+            Manage
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        ) : (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 px-3 py-1.5 rounded-full transition-colors"
+          >
+            + Add
+          </button>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">
-        {sortedItems.map((item) => (
-          <BillCard key={item.id} item={item} onDelete={deleteRecurringItem} />
+        {displayItems.map((item) => (
+          <BillCard
+            key={item.id}
+            item={item}
+            onDelete={deleteRecurringItem}
+            hideDelete={isPreview}
+          />
         ))}
 
-        {sortedItems.length === 0 && (
+        {displayItems.length === 0 && (
           <div className="p-6 rounded-2xl bg-white border border-slate-100 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px]">
             <span className="text-sm">No recurring bills tracked.</span>
             <button
@@ -84,9 +111,11 @@ export function RecurringBills() {
 function BillCard({
   item,
   onDelete,
+  hideDelete = false,
 }: {
   item: RecurringItem;
   onDelete: (id: string) => void;
+  hideDelete?: boolean;
 }) {
   const categoryMeta = CATEGORY_META[item.category] || CATEGORY_META.other;
 
@@ -113,12 +142,14 @@ function BillCard({
         <span className="font-bold text-slate-900">
           {formatCurrency(item.amount)}
         </span>
-        <button
-          onClick={() => onDelete(item.id)}
-          className="p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-        >
-          &times;
-        </button>
+        {!hideDelete && (
+          <button
+            onClick={() => onDelete(item.id)}
+            className="p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+          >
+            &times;
+          </button>
+        )}
       </div>
     </div>
   );

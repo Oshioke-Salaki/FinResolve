@@ -1,67 +1,229 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { WeeklyInsight } from "@/components/coach/WeeklyInsight";
-import { type SpendingInsight } from "@/lib/coach/generateInsight";
-import { getWeeklyInsightAction } from "@/actions/insights";
-import { Loader2 } from "lucide-react";
+import {
+  getWeeklyInsightAction,
+  type DashboardAnalytics,
+} from "@/actions/insights";
+import { Loader2, TrendingUp, Wallet, PieChart, Plus } from "lucide-react";
+import {
+  DailyTrendChart,
+  CategoryPieChart,
+} from "@/components/insights/InsightsCharts";
+import { formatCurrency } from "@/lib/parseInput";
+import { CATEGORY_META, type SpendingCategory } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
 
 export default function InsightsPage() {
-  const { profile, isLoading } = useFinancial();
-  const [insight, setInsight] = useState<SpendingInsight | null>(null);
-  const [loadingInsight, setLoadingInsight] = useState(true);
+  const { profile, isLoading, addSpending } = useFinancial();
+  const [data, setData] = useState<DashboardAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleAddTransaction = (data: {
+    amount: string;
+    category: string;
+    description: string;
+    accountId: string;
+  }) => {
+    addSpending({
+      id: crypto.randomUUID(),
+      category: data.category.toLowerCase() as SpendingCategory,
+      amount: parseFloat(data.amount),
+      confidence: "high",
+      source: "manual",
+      description: data.description || undefined,
+      date: new Date().toISOString(),
+      accountId: data.accountId,
+      type: "expense",
+    });
+    // Optimistically update or re-fetch logic could go here
+    setIsModalOpen(false);
+  };
 
   useEffect(() => {
-    async function loadInsight() {
+    async function loadData() {
       if (profile && profile.hasCompletedOnboarding) {
         try {
           const result = await getWeeklyInsightAction(profile);
-          setInsight(result);
+          setData(result);
         } catch (error) {
           console.error("Failed to load insight", error);
         } finally {
-          setLoadingInsight(false);
+          setLoading(false);
         }
       }
     }
 
     if (!isLoading) {
-      loadInsight();
+      loadData();
     }
   }, [profile, isLoading]);
 
-  // Temporary UI placeholder until Server Action is wired
-  return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
-      <header>
-        <h1 className="text-2xl font-bold text-slate-900">Weekly Insights</h1>
-        <p className="text-slate-500">Your personal financial coach check-in</p>
-      </header>
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="w-8 h-8 text-primary animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Analyzing your week...</p>
+      </div>
+    );
+  }
 
-      <div className="bg-gradient-to-r from-primary/10 to-blue-50 p-8 rounded-3xl mb-8">
-        <h2 className="text-xl font-semibold text-primary mb-2">
-          Hello, {profile.name || "friend"}! 👋
-        </h2>
-        <p className="text-slate-700 max-w-2xl">
-          I&rsquo;ve analyzed your spending patterns for this week. Here&#39;s
-          what I found...
-        </p>
+  if (!data) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-slate-500">No data available for insights yet.</p>
+      </div>
+    );
+  }
+
+  const dailyAverage = data.totalSpent / 7;
+
+  return (
+    <div className="p-6 max-w-7xl mx-auto space-y-8 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <header>
+          <h1 className="text-3xl font-bold text-slate-900">Weekly Insights</h1>
+          <p className="text-slate-500 mt-1">
+            Your financial health check for the last 7 days.
+          </p>
+        </header>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl font-medium shadow-sm hover:bg-slate-800 transition-colors w-fit"
+        >
+          <Plus className="w-4 h-4" />
+          Add Expense
+        </button>
       </div>
 
-      {loadingInsight ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <AddTransactionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onAdd={handleAddTransaction}
+      />
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Total Spent */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Wallet className="w-16 h-16 text-primary" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-sm font-medium text-slate-500 mb-1">
+              Total Spent
+            </p>
+            <h3 className="text-3xl font-bold text-slate-900">
+              {formatCurrency(data.totalSpent)}
+            </h3>
+            <p className="text-xs text-slate-400 mt-2">Last 7 days</p>
+          </div>
         </div>
-      ) : insight ? (
+
+        {/* Daily Average */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+            <TrendingUp className="w-16 h-16 text-blue-500" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-sm font-medium text-slate-500 mb-1">
+              Daily Average
+            </p>
+            <h3 className="text-3xl font-bold text-slate-900">
+              {formatCurrency(dailyAverage)}
+            </h3>
+            <p className="text-xs text-slate-400 mt-2">Per day</p>
+          </div>
+        </div>
+
+        {/* Top Category */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
+            <PieChart className="w-16 h-16 text-purple-500" />
+          </div>
+          <div className="relative z-10">
+            <p className="text-sm font-medium text-slate-500 mb-1">
+              Top Category
+            </p>
+            <div className="flex items-baseline gap-2">
+              <h3 className="text-2xl font-bold text-slate-900 truncate">
+                {data.topCategory
+                  ? CATEGORY_META[data.topCategory.category].label
+                  : "None"}
+              </h3>
+              {data.topCategory && (
+                <span className="text-sm font-medium text-slate-500">
+                  {formatCurrency(data.topCategory.amount)}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Highest spend area</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Daily Trend */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm lg:col-span-2">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Spending Trend</h3>
+            <p className="text-sm text-slate-500">
+              Your daily spending over the last week
+            </p>
+          </div>
+          <DailyTrendChart data={data.dailyTrend} />
+        </div>
+
+        {/* Category Breakdown */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-slate-800">Where it went</h3>
+            <p className="text-sm text-slate-500">Spending by category</p>
+          </div>
+          <CategoryPieChart data={data.categoryBreakdown} />
+
+          {/* Legend */}
+          <div className="mt-6 space-y-3">
+            {data.categoryBreakdown.slice(0, 3).map((item) => (
+              <div
+                key={item.category}
+                className="flex items-center justify-between text-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{
+                      backgroundColor: CATEGORY_META[item.category].color,
+                    }}
+                  />
+                  <span className="text-slate-600">
+                    {CATEGORY_META[item.category].label}
+                  </span>
+                </div>
+                <span className="font-medium text-slate-900">
+                  {formatCurrency(item.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* AI Coach Insight */}
+      <div>
+        <h3 className="text-lg font-bold text-slate-800 mb-4 px-2">
+          Coach's Analysis
+        </h3>
         <WeeklyInsight
-          insight={insight}
+          insight={data.insight}
           onAccept={() => console.log("Accepted")}
           onReject={() => console.log("Rejected")}
         />
-      ) : (
-        <p>No insights available yet.</p>
-      )}
+      </div>
     </div>
   );
 }

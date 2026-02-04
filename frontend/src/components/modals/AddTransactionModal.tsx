@@ -3,11 +3,20 @@
 import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Plus } from "lucide-react";
+import { useFinancial } from "@/contexts/FinancialContext";
+import { formatCurrency } from "@/lib/parseInput";
+
+import { CATEGORY_META } from "@/lib/types";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (transaction: any) => void;
+  onAdd: (transaction: {
+    amount: string;
+    category: string;
+    description: string;
+    accountId: string;
+  }) => void;
 }
 
 export function AddTransactionModal({
@@ -15,22 +24,55 @@ export function AddTransactionModal({
   onClose,
   onAdd,
 }: AddTransactionModalProps) {
+  const { profile } = useFinancial();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [data, setData] = useState({
     amount: "",
-    category: "Food",
+    category: "food",
     description: "",
+    accountId: profile.accounts[0]?.id || "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    // Artificial delay for premium feel and to simulate "processing"
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
     onAdd(data);
+    setIsSubmitting(false);
     onClose();
-    setData({ amount: "", category: "Food", description: "" }); // Reset
+    setData({
+      amount: "",
+      category: "food",
+      description: "",
+      accountId: profile.accounts[0]?.id || "",
+    }); // Reset
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add New Expense">
       <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Account
+          </label>
+          <select
+            required
+            className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all bg-white"
+            value={data.accountId}
+            onChange={(e) => setData({ ...data, accountId: e.target.value })}
+          >
+            {profile.accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({formatCurrency(acc.balance)})
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Amount (₦)
@@ -54,11 +96,11 @@ export function AddTransactionModal({
             value={data.category}
             onChange={(e) => setData({ ...data, category: e.target.value })}
           >
-            <option value="Food">Food & Dining</option>
-            <option value="Transport">Transportation</option>
-            <option value="Rent">Rent & Utilities</option>
-            <option value="Shopping">Shopping</option>
-            <option value="Entertainment">Entertainment</option>
+            {Object.entries(CATEGORY_META).map(([key, meta]) => (
+              <option key={key} value={key}>
+                {meta.emoji} {meta.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -77,10 +119,20 @@ export function AddTransactionModal({
 
         <button
           type="submit"
-          className="w-full bg-primary text-white font-medium py-3 rounded-xl hover:bg-primary/90 transition-colors flex justify-center items-center gap-2 mt-2"
+          disabled={isSubmitting}
+          className="w-full bg-primary text-white font-medium py-3 rounded-xl hover:bg-primary/90 transition-colors flex justify-center items-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          <Plus className="w-5 h-5" />
-          Add Expense
+          {isSubmitting ? (
+            <>
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Plus className="w-5 h-5" />
+              Add Expense
+            </>
+          )}
         </button>
       </form>
     </Modal>

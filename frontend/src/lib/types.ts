@@ -55,6 +55,9 @@ export type SpendingCategory =
   | "savings"
   | "family"
   | "debt"
+  | "personal_care"
+  | "investment"
+  | "tax"
   | "salary"
   | "business"
   | "gift"
@@ -276,6 +279,9 @@ export const CATEGORY_META: Record<
   savings: { label: "Savings", color: "#22c55e", emoji: "💰" },
   family: { label: "Family & Kids", color: "#f472b6", emoji: "👨‍👩‍👧" },
   debt: { label: "Debt Repayment", color: "#ef4444", emoji: "💳" },
+  personal_care: { label: "Personal Care", color: "#f472b6", emoji: "💄" },
+  investment: { label: "Investment", color: "#6366f1", emoji: "📈" },
+  tax: { label: "Taxes", color: "#64748b", emoji: "🏛️" },
   salary: { label: "Salary / Income", color: "#16a34a", emoji: "💸" },
   business: { label: "Business Income", color: "#0891b2", emoji: "💼" },
   gift: { label: "Gifts", color: "#db2777", emoji: "🎁" },

@@ -1,7 +1,7 @@
 "use server";
 
 import { opikClient } from "@/lib/opikClient";
-import { geminiModel, GEMINI_MODEL_NAME } from "@/lib/geminiClient";
+import { openai, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
 import { type UserFinancialProfile, CATEGORY_META } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
 
@@ -110,6 +110,9 @@ Top Spending Categories:
 Savings Goals:
   ${goalsInfo}
 
+Budgets:
+  ${profile.budgets.length > 0 ? profile.budgets.map((b) => `- ${b.category}: ${formatCurrency(b.limit)} limit (${formatCurrency(b.spent)} spent)`).join("\n  ") : "No budgets set yet"}
+
 Guidelines:
 - Be warm, supportive, and non-judgmental about money
 - Use Nigerian Naira (₦) for all currency amounts
@@ -121,14 +124,15 @@ Guidelines:
 - Keep responses concise but helpful (2-4 sentences for simple queries, more for detailed financial analysis)
 - Never give investment advice or legal advice - you're a budgeting coach
 - If they haven't shared financial data yet, gently encourage them to share their income/expenses so you can help better
-- If the user clearly states they want to log an expense (e.g., "I spent 5k on food"):
-  1. FIRST, check if they specified which account they used (e.g. "from my generic bank", "cash", "credit card").
-  2. IF NOT, ask them: "Which account did you use? (e.g., [List user's account names])"
-  3. IF THEY HAVE specified the account (or if they only have one account), match it to one of the Account IDs below:
+- BUDGET DETECTION: If an expense is logged for a category that does NOT have a budget, mention it and offer to set a limit. (e.g., "I've logged that. You don't have a budget for Shopping yet—would you like to set a monthly limit?")
+- If the user clearly states they want to log an expense (e.g., "I spent some money on food" or "I paid for the light bulb"):
+  1. FIRST, check if you have all required fields: AMOUNT, CATEGORY, and ACCOUNT.
+  2. IF AMOUNT IS MISSING: Do NOT output an action. Ask the user: "How much did you spend on that [category]?"
+  3. IF ACCOUNT IS MISSING: Do NOT output an action. Ask the user: "Which account did you use? (e.g., ${profile.accounts.map((a) => a.name).join(", ") || "Cash"})"
+  4. IF CATEGORY IS UNCLEAR: Do NOT output an action. Ask the user to clarify.
+  5. ONLY IF YOU HAVE ALL THREE (Amount, Category, Account), match the account name to an ID:
      ${profile.accounts.map((a) => `${a.name} (ID: ${a.id})`).join(", ")}
-  4. THEN, output a JSON action block at the END of your response.
-  
-  4. THEN, output a JSON action block at the END of your response.
+  6. THEN, output the JSON action block at the END of your response.
   
   Format for Expenses:
   [[ACTION]]
@@ -193,6 +197,17 @@ Guidelines:
   }
   [[/ACTION]]
 
+  Format for Creating Budgets:
+  [[ACTION]]
+  {
+    "type": "CREATE_BUDGET",
+    "payload": {
+      "category": "shopping",
+      "limit": 20000
+    }
+  }
+  [[/ACTION]]
+
   Categories: 
   - Expenses: food, transport, utilities, data_airtime, housing, entertainment, shopping, health, education, savings, family, debt, other.
   - Income: salary, business, gift, other.
@@ -222,7 +237,7 @@ Guidelines:
 }
 
 /**
- * Server Action to generate AI response using Gemini
+ * Server Action to generate AI response using OpenAI
  * Includes Opik tracing for observability
  */
 export async function generateAIResponse(
@@ -234,50 +249,41 @@ export async function generateAIResponse(
   const startTime = Date.now();
 
   try {
-    // Build the system prompt with financial context
+    // Build the system prompt
     const systemPrompt = buildSystemPrompt(profile);
 
-    // Limit history to last 10 messages to avoid token context limits
-    // and map to Gemini format
+    // Filter history and map to OpenAI format
     const recentHistory = history.slice(-10).map((msg) => ({
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
+      role: (msg.role === "assistant" ? "assistant" : "user") as
+        | "assistant"
+        | "user",
+      content: msg.content,
     }));
 
-    // Construct the full prompt structure
-    // Gemini expects: [System Prompt, ...History, Current Query]
-    // However, for generateContent with system instructions, we often put it in the config or as the first part.
-    // The previous implementation passed system prompt as text.
-    // Let's stick to the previous pattern but insert history in between.
-
-    const contents = [
-      { role: "user", parts: [{ text: systemPrompt }] }, // System prompt disguised as user message or just context
-      {
-        role: "model",
-        parts: [{ text: "Understood. I am ready to act as FinResolve AI." }],
-      }, // Ack to prime the model
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
       ...recentHistory,
-      { role: "user", parts: [{ text: `User: ${query}` }] },
+      { role: "user", content: query },
     ];
 
-    // Call Gemini API
-    const result = await geminiModel.generateContent({
-      contents: contents,
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL_NAME,
+      messages: messages,
+      temperature: 0.7,
     });
 
-    const response = result.response;
-    const responseText = response.text();
+    const responseText = completion.choices[0].message.content || "";
     const latency = Date.now() - startTime;
 
-    // Get token usage if available
-    const usageMetadata = response.usageMetadata;
+    // Token usage
     const tokenUsage = {
-      promptTokens: usageMetadata?.promptTokenCount || 0,
-      completionTokens: usageMetadata?.candidatesTokenCount || 0,
-      totalTokens: usageMetadata?.totalTokenCount || 0,
+      promptTokens: completion.usage?.prompt_tokens || 0,
+      completionTokens: completion.usage?.completion_tokens || 0,
+      totalTokens: completion.usage?.total_tokens || 0,
     };
 
-    // Now create Opik trace WITH output (SDK requires output at creation time)
+    // Opik Tracing
     const trace = opikClient.trace({
       name: "financial-advice",
       input: {
@@ -297,33 +303,29 @@ export async function generateAIResponse(
         latencyMs: latency,
         tokenUsage,
       },
-      tags: ["gemini", "financial-coach"],
+      tags: ["openai", "financial-coach"],
     });
 
-    // Create span WITH output included
     const span = trace.span({
-      name: "gemini-generation",
+      name: "openai-generation",
       type: "llm",
       input: {
-        query,
-        systemPrompt: systemPrompt,
+        messages,
       },
       output: {
         response: responseText,
       },
       metadata: {
-        model: GEMINI_MODEL_NAME,
-        provider: "google",
+        model: OPENAI_MODEL_NAME,
+        provider: "openai",
         latencyMs: latency,
-        promptTokens: tokenUsage.promptTokens,
-        completionTokens: tokenUsage.completionTokens,
-        totalTokens: tokenUsage.totalTokens,
+        ...tokenUsage,
       },
     });
     span.end();
     trace.end();
 
-    // Flush Opik buffer
+    // Flush Opik buffer (optional, best effort)
     try {
       await opikClient.flush();
       terminalLog("Opik flush completed successfully");
@@ -337,27 +339,30 @@ export async function generateAIResponse(
     );
 
     // Parse for actions
-    const actionMatch = responseText.match(
-      /\[\[ACTION\]\]([\s\S]*?)\[\[\/ACTION\]\]/,
-    );
-    let cleanContent = responseText;
-    let parsedAction: any = undefined;
+    const actionRegex = /\[\[ACTION\]\]([\s\S]*?)\[\[\/ACTION\]\]/g;
+    const matches = [...responseText.matchAll(actionRegex)];
 
-    if (actionMatch) {
-      try {
-        parsedAction = JSON.parse(actionMatch[1].trim());
-        // Remove the action block from the visible response
-        cleanContent = responseText.replace(actionMatch[0], "").trim();
-      } catch (e) {
-        console.error("Failed to parse AI action:", e);
-      }
+    let cleanContent = responseText;
+    const parsedActions: any[] = []; // Changed to array
+
+    if (matches.length > 0) {
+      matches.forEach((match) => {
+        try {
+          const action = JSON.parse(match[1].trim());
+          parsedActions.push(action);
+          // Remove the action block from the visible response
+          cleanContent = cleanContent.replace(match[0], "").trim();
+        } catch (e) {
+          console.error("Failed to parse AI action:", e);
+        }
+      });
     }
 
     return {
       content: cleanContent,
       confidence: "high" as const,
       assumptions: undefined,
-      action: parsedAction,
+      actions: parsedActions, // Helper to return array
     };
   } catch (error) {
     const latency = Date.now() - startTime;
@@ -366,9 +371,10 @@ export async function generateAIResponse(
 
     return {
       content:
-        "I'm having trouble connecting to my financial brain right now. Please try again in a moment!",
+        "I'm having trouble connecting to my financial brain right now. Please try again in a moment! (Check your API Key)",
       confidence: "low" as const,
       assumptions: undefined,
+      actions: [],
     };
   }
 }

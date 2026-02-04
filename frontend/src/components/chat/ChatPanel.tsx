@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Sparkles, MessageSquare } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import { ChatMessage, type Role } from "./ChatMessage";
 import { SuggestedQuestions } from "./SuggestedQuestions";
@@ -26,6 +27,42 @@ const DEFAULT_SUGGESTIONS = [
   "Can I afford a large purchase?",
   "How much can I save this month?",
 ];
+
+const THINKING_MESSAGES = [
+  "Thinking...",
+  "Analyzing your finances...",
+  "Checking your goals...",
+  "Consulting the vault...",
+  "Crunching numbers...",
+];
+
+function ThinkingText() {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((i) => (i + 1) % THINKING_MESSAGES.length);
+    }, 2000); // Rotate every 2s
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="h-5 overflow-hidden flex flex-col justify-center">
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={THINKING_MESSAGES[index]}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -20, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="text-xs text-slate-500 font-medium"
+        >
+          {THINKING_MESSAGES[index]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function ChatPanel({
   messages,
@@ -78,36 +115,66 @@ export function ChatPanel({
           </div>
         ) : (
           <>
-            {messages.map((msg) => (
-              <div key={msg.id}>
-                <ChatMessage role={msg.role} content={msg.content} />
-                {msg.assumptions && msg.assumptions.length > 0 && (
-                  <div className="ml-10 mt-1 text-xs text-slate-400 italic">
-                    Note: {msg.assumptions.join(", ")}
-                  </div>
-                )}
-              </div>
-            ))}
+            <AnimatePresence initial={false}>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{
+                    opacity: 0,
+                    scale: 0.8,
+                    y: 20,
+                    filter: "blur(10px)",
+                  }}
+                  animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{
+                    duration: 0.4,
+                    ease: [0.23, 1, 0.32, 1], // Cubic bezier for "pop" feel
+                    type: "spring",
+                    stiffness: 260,
+                    damping: 20,
+                  }}
+                  className="origin-bottom-left"
+                >
+                  <ChatMessage role={msg.role} content={msg.content} />
+                  {msg.assumptions && msg.assumptions.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                      className="ml-10 mt-1 text-xs text-slate-400 italic"
+                    >
+                      Note: {msg.assumptions.join(", ")}
+                    </motion.div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
             {/* Typing indicator */}
-            {isTyping && (
-              <div className="flex items-center gap-2 p-3">
-                <div className="flex bg-primary/10 w-6 h-6 rounded-full items-center justify-center">
-                  <div className="flex gap-0.5">
-                    <span className="w-1 h-1 bg-primary/60 rounded-full animate-bounce" />
-                    <span
-                      className="w-1 h-1 bg-primary/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
+            <AnimatePresence>
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                  className="flex items-center gap-2 p-3"
+                >
+                  <div className="flex bg-primary/10 w-8 h-8 rounded-full items-center justify-center relative overflow-hidden">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
+                      className="absolute inset-0 bg-linear-to-tr from-transparent via-primary/20 to-transparent"
                     />
-                    <span
-                      className="w-1 h-1 bg-primary/60 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
+                    <Sparkles className="w-4 h-4 text-primary animate-pulse" />
                   </div>
-                </div>
-                <span className="text-xs text-slate-500">Thinking...</span>
-              </div>
-            )}
+                  <ThinkingText />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div ref={messagesEndRef} />
           </>

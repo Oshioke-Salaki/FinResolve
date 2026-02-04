@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Target, AlertCircle, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import {
+  Plus,
+  Target,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+} from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
@@ -9,11 +16,29 @@ import type { Budget, SpendingCategory } from "@/lib/types";
 import { CATEGORY_META } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function BudgetProgress() {
+interface BudgetProgressProps {
+  isPreview?: boolean;
+}
+
+export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
   const { profile, addBudget, deleteBudget } = useFinancial();
   const [showAddForm, setShowAddForm] = useState(false);
 
   const budgets = profile.budgets || [];
+  const spendingSummary = profile.spendingSummary || [];
+
+  // Calculate unbudgeted spending
+  const budgetedCategories = new Set(budgets.map((b) => b.category));
+  const unbudgetedSpending = spendingSummary
+    .filter((s) => !budgetedCategories.has(s.category))
+    .reduce((sum, s) => sum + s.total, 0);
+
+  // If preview, only show top 3 + misc
+  const displayBudgets = isPreview
+    ? [...budgets]
+        .sort((a, b) => b.spent / b.limit - a.spent / a.limit)
+        .slice(0, 3)
+    : budgets;
 
   return (
     <div className="space-y-4">
@@ -23,23 +48,43 @@ export function BudgetProgress() {
             <Target className="w-4 h-4 text-blue-500" />
           </div>
           <h2 className="text-lg font-semibold text-slate-800">
-            Monthly Budgets
+            {isPreview ? "Budgets Preview" : "Monthly Budgets"}
           </h2>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-full transition-colors"
-        >
-          + Set Limit
-        </button>
+
+        {isPreview ? (
+          <Link
+            href="/budgets"
+            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors bg-blue-50 px-3 py-1.5 rounded-full"
+          >
+            View All
+            <ArrowRight className="w-3 h-3" />
+          </Link>
+        ) : (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1.5 rounded-full transition-colors"
+          >
+            + Set Limit
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {budgets.map((budget) => (
-          <BudgetCard key={budget.id} budget={budget} onDelete={deleteBudget} />
+        {displayBudgets.map((budget) => (
+          <BudgetCard
+            key={budget.id}
+            budget={budget}
+            onDelete={deleteBudget}
+            hideDelete={isPreview}
+          />
         ))}
 
-        {budgets.length === 0 && (
+        {unbudgetedSpending > 0 && (
+          <UnbudgetedCard amount={unbudgetedSpending} />
+        )}
+
+        {displayBudgets.length === 0 && unbudgetedSpending === 0 && (
           <div className="col-span-1 md:col-span-2 p-6 rounded-2xl bg-white border border-slate-100 flex flex-col items-center justify-center text-slate-400 gap-2 min-h-[120px]">
             <span className="text-sm">No budgets set yet.</span>
             <button
@@ -67,9 +112,11 @@ export function BudgetProgress() {
 function BudgetCard({
   budget,
   onDelete,
+  hideDelete = false,
 }: {
   budget: Budget;
   onDelete: (id: string) => void;
+  hideDelete?: boolean;
 }) {
   const percentage = Math.min((budget.spent / budget.limit) * 100, 100);
   const isOverBudget = budget.spent > budget.limit;
@@ -79,15 +126,17 @@ function BudgetCard({
 
   return (
     <div className="p-4 rounded-xl bg-white border border-slate-100 shadow-sm relative group hover:border-slate-200 transition-colors">
-      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onDelete(budget.id)}
-          className="p-1 text-slate-300 hover:text-red-500 transition-colors"
-        >
-          <span className="sr-only">Delete</span>
-          &times;
-        </button>
-      </div>
+      {!hideDelete && (
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => onDelete(budget.id)}
+            className="p-1 text-slate-300 hover:text-red-500 transition-colors"
+          >
+            <span className="sr-only">Delete</span>
+            &times;
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -130,6 +179,37 @@ function BudgetCard({
         <span>{formatCurrency(budget.spent)} spent</span>
         <span>of {formatCurrency(budget.limit)}</span>
       </div>
+    </div>
+  );
+}
+
+function UnbudgetedCard({ amount }: { amount: number }) {
+  return (
+    <div className="p-4 rounded-xl bg-slate-50/50 border border-dashed border-slate-200 shadow-sm relative group transition-colors">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">🗳️</span>
+          <span className="text-sm font-medium text-slate-600">
+            Miscellaneous
+          </span>
+        </div>
+        <div className="p-1 bg-amber-100 rounded-full">
+          <AlertCircle className="w-3 h-3 text-amber-600" />
+        </div>
+      </div>
+
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-xl font-bold text-slate-800">
+          {formatCurrency(amount)}
+        </span>
+        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+          Spent
+        </span>
+      </div>
+
+      <p className="text-[10px] text-slate-400 mt-2 leading-tight">
+        Spending in categories without a budget. Ask the coach to set a limit!
+      </p>
     </div>
   );
 }

@@ -11,26 +11,31 @@ interface SaveNowModalProps {
   isOpen: boolean;
   onClose: () => void;
   goalName: string;
-  onSave: (amount: number) => void;
+  accounts: any[];
+  onSave: (amount: number, accountId: string) => void;
 }
 
 function SaveNowModal({
   isOpen,
   onClose,
   goalName,
+  accounts,
   onSave,
 }: SaveNowModalProps) {
   const [amount, setAmount] = useState("");
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    accounts[0]?.id || "",
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
     const numAmount = parseFloat(amount.replace(/,/g, ""));
-    if (numAmount > 0) {
+    if (numAmount > 0 && selectedAccountId) {
       setIsSaving(true);
       await new Promise((r) => setTimeout(r, 500)); // Simulate API call
-      onSave(numAmount);
+      onSave(numAmount, selectedAccountId);
       setIsSaving(false);
       setAmount("");
       onClose();
@@ -50,33 +55,52 @@ function SaveNowModal({
         <h3 className="text-lg font-semibold text-slate-800 mb-1">
           Save to {goalName}
         </h3>
-        <p className="text-sm text-slate-500 mb-4">
+        <p className="text-sm text-slate-500 mb-6">
           Add funds to your savings goal
         </p>
 
-        <div className="mb-4">
-          <label className="text-sm font-medium text-slate-700 mb-1 block">
-            Amount
-          </label>
-          <input
-            type="text"
-            value={amount}
-            onChange={(e) => {
-              const rawValue = e.target.value.replace(/[^0-9.]/g, "");
-              if (rawValue) {
-                const numberValue = parseFloat(rawValue);
-                if (!isNaN(numberValue)) {
-                  setAmount(numberValue.toLocaleString());
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">
+              Which account?
+            </label>
+            <select
+              value={selectedAccountId}
+              onChange={(e) => setSelectedAccountId(e.target.value)}
+              className="w-full px-4 py-2 text-slate-800 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({formatCurrency(acc.balance)})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-slate-700 mb-1 block">
+              Amount
+            </label>
+            <input
+              type="text"
+              value={amount}
+              onChange={(e) => {
+                const rawValue = e.target.value.replace(/[^0-9.]/g, "");
+                if (rawValue) {
+                  const numberValue = parseFloat(rawValue);
+                  if (!isNaN(numberValue)) {
+                    setAmount(numberValue.toLocaleString());
+                  } else {
+                    setAmount(rawValue);
+                  }
                 } else {
-                  setAmount(rawValue);
+                  setAmount("");
                 }
-              } else {
-                setAmount("");
-              }
-            }}
-            placeholder="0"
-            className="w-full px-4 py-3 text-2xl font-semibold text-slate-800 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+              }}
+              placeholder="0"
+              className="w-full px-4 py-3 text-2xl font-semibold text-slate-800 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            />
+          </div>
         </div>
 
         <div className="flex gap-2 mb-6">
@@ -100,10 +124,10 @@ function SaveNowModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={!amount || isSaving}
+            disabled={!amount || !selectedAccountId || isSaving}
             className={cn(
               "flex-1 py-3 text-sm font-medium text-white rounded-xl transition-colors flex items-center justify-center gap-2",
-              amount && !isSaving
+              amount && selectedAccountId && !isSaving
                 ? "bg-primary hover:bg-primary/90"
                 : "bg-slate-300 cursor-not-allowed",
             )}
@@ -126,10 +150,32 @@ function SaveNowModal({
   );
 }
 
+import { AddGoalModal } from "@/components/modals/AddGoalModal";
+
 export function PrimaryGoalWidget() {
-  const { profile, updateGoal, isLoading } = useFinancial();
+  const { profile, updateGoal, addGoal, addSpending, isLoading } =
+    useFinancial();
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+
+  const handleAddGoal = (data: {
+    title: string;
+    targetAmount: string;
+    deadline: string;
+    color: string;
+  }) => {
+    addGoal({
+      id: crypto.randomUUID(),
+      name: data.title,
+      target: parseFloat(data.targetAmount || "0"),
+      current: 0,
+      deadline: data.deadline || undefined,
+      priority: "medium", // Default for now
+      createdAt: new Date().toISOString(),
+    });
+    setShowAddGoalModal(false);
+  };
 
   if (isLoading) {
     return (
@@ -161,11 +207,19 @@ export function PrimaryGoalWidget() {
         </div>
         <div className="py-6 text-center">
           <p className="text-sm text-slate-500">No goals set yet</p>
-          <button className="mt-3 text-sm text-primary font-medium hover:underline flex items-center gap-1 mx-auto">
+          <button
+            onClick={() => setShowAddGoalModal(true)}
+            className="mt-3 text-sm text-primary font-medium hover:underline flex items-center gap-1 mx-auto"
+          >
             <Plus className="w-4 h-4" />
             Add a goal
           </button>
         </div>
+        <AddGoalModal
+          isOpen={showAddGoalModal}
+          onClose={() => setShowAddGoalModal(false)}
+          onAdd={handleAddGoal}
+        />
       </div>
     );
   }
@@ -176,11 +230,26 @@ export function PrimaryGoalWidget() {
   );
   const remaining = primaryGoal.target - primaryGoal.current;
 
-  const handleSave = (amount: number) => {
-    // Optimistic UI update
+  const handleSave = (amount: number, accountId: string) => {
+    // 1. Log the 'expense' (transfer to savings)
+    addSpending({
+      id: crypto.randomUUID(),
+      category: "savings",
+      amount: amount,
+      confidence: "high",
+      source: "manual",
+      description: `Saved for ${primaryGoal.name}`,
+      date: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      accountId: accountId,
+      type: "expense",
+    });
+
+    // 2. Update Goal
     updateGoal(primaryGoal.id, {
       current: primaryGoal.current + amount,
     });
+
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 2000);
   };
@@ -273,6 +342,7 @@ export function PrimaryGoalWidget() {
         isOpen={showSaveModal}
         onClose={() => setShowSaveModal(false)}
         goalName={primaryGoal.name}
+        accounts={profile.accounts}
         onSave={handleSave}
       />
     </>

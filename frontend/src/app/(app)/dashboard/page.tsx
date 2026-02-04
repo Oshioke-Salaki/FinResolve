@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { StatementUploadModal } from "@/components/modals/StatementUploadModal";
 import { useFinancial } from "@/contexts/FinancialContext";
+import { CATEGORY_META } from "@/lib/types";
+import { formatCurrency } from "@/lib/parseInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateAIResponse } from "@/actions/ai";
 import { getGreeting } from "@/lib/aiLogic";
@@ -61,6 +63,7 @@ function DashboardContent() {
     addSpending,
     addSpendingSummary,
     addGoal,
+    addBudget,
   } = useFinancial();
   const { user } = useAuth();
 
@@ -88,15 +91,33 @@ function DashboardContent() {
     ).getDate();
     const daysRemaining = daysInMonth - today.getDate();
 
+    // 1. Check for specific category budget overruns (highest priority)
+    const overBudgetCategories = profile.budgets
+      .filter((b) => b.spent > b.limit)
+      .sort((a, b) => b.spent / b.limit - a.spent / a.limit);
+
+    if (overBudgetCategories.length > 0) {
+      const top = overBudgetCategories[0];
+      const meta = CATEGORY_META[top.category];
+      const overAmount = top.spent - top.limit;
+      return `Warning: You are ${formatCurrency(overAmount)} over your ${meta.label} budget! 🚨`;
+    }
+
+    // 2. Check for overall monthly budget
     if (budgetRemaining < 0) {
-      return "You're over budget this month. Let's talk about it.";
+      return "You're over your total budget this month. Let's review your spending.";
     }
+
+    // 3. Near end of month check
     if (daysRemaining <= 5 && budgetRemaining > 0) {
-      return `${daysRemaining} days left - you're doing great!`;
+      return `${daysRemaining} days left - you're doing great with your savings!`;
     }
+
+    // 4. Goal nudge
     if (profile.goals.length === 0) {
-      return "Ready to set a savings goal?";
+      return "Ready to set your first savings goal? I can help.";
     }
+
     return undefined;
   };
 
@@ -158,10 +179,16 @@ function DashboardContent() {
         const response = await generateAIResponse(content, profile, history);
 
         // Handle AI Actions
-        if (response.action) {
-          const action = response.action;
+        const actions = response.actions || [];
+
+        for (const action of actions) {
           if (action.type === "LOG_EXPENSE") {
             const payload = action.payload;
+
+            if (!payload.amount || payload.amount <= 0) {
+              console.warn("AI attempted to log expense with 0 amount");
+              continue;
+            }
 
             // Add detailed entry
             addSpending({
@@ -176,11 +203,13 @@ function DashboardContent() {
               accountId: payload.accountId,
               type: "expense",
             });
-
-            // Update summary
-            addSpendingSummary(payload.category, payload.amount, "high");
           } else if (action.type === "LOG_INCOME") {
             const payload = action.payload;
+
+            if (!payload.amount || payload.amount <= 0) {
+              console.warn("AI attempted to log income with 0 amount");
+              continue;
+            }
 
             addSpending({
               id: crypto.randomUUID(),
@@ -249,6 +278,15 @@ function DashboardContent() {
               deadline: payload.deadline,
               priority: "medium",
               createdAt: new Date().toISOString(),
+            });
+          } else if (action.type === "CREATE_BUDGET") {
+            const payload = action.payload;
+            addBudget({
+              id: crypto.randomUUID(),
+              category: payload.category,
+              limit: payload.limit,
+              period: "monthly",
+              spent: 0,
             });
           }
         }
@@ -343,7 +381,6 @@ function DashboardContent() {
 
       {/* Command Bar */}
       <CommandBar
-        onSearch={handleCommandSearch}
         onAddExpense={handleAddExpense}
         onAnalyze={handleAnalyze}
         onSaveNow={handleSaveNow}
@@ -363,8 +400,8 @@ function DashboardContent() {
 
             {/* Budget & Recurring Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BudgetProgress />
-              <RecurringBills />
+              <BudgetProgress isPreview />
+              <RecurringBills isPreview />
             </div>
 
             {/* Charts Row */}

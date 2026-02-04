@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FinancialProvider } from "@/contexts/FinancialContext";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,7 +31,10 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <FinancialProvider>{children}</FinancialProvider>
+          <FinancialProvider>
+            {children}
+            <Toaster richColors position="top-right" closeButton />
+          </FinancialProvider>
         </AuthProvider>
       </body>
     </html>

@@ -10,7 +10,12 @@ export default function GoalsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { addGoal, profile } = useFinancial();
 
-  const handleAddGoal = (data: { title: string; targetAmount: string; deadline: string; color: string }) => {
+  const handleAddGoal = (data: {
+    title: string;
+    targetAmount: string;
+    deadline: string;
+    color: string;
+  }) => {
     addGoal({
       id: crypto.randomUUID(),
       name: data.title,
@@ -60,7 +65,7 @@ export default function GoalsPage() {
               title={goal.name}
               target={goal.target}
               current={goal.current}
-              deadline={goal.deadline || "No deadline"}
+              deadline={goal.deadline}
               color="bg-blue-500"
             />
           ))

@@ -21,6 +21,7 @@ import {
   createEmptyProfile,
 } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Storage key for localStorage fallback - per user to prevent cross-user data leakage
@@ -591,6 +592,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
   const addBudget = useCallback((budget: Budget) => {
     setProfile((p) => ({ ...p, budgets: [...p.budgets, budget] }));
+    toast.success(`Budget for ${budget.category} created!`);
   }, []);
 
   const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
@@ -605,10 +607,12 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       ...p,
       budgets: p.budgets.filter((b) => b.id !== id),
     }));
+    toast.error("Budget removed");
   }, []);
 
   const addRecurringItem = useCallback((item: RecurringItem) => {
     setProfile((p) => ({ ...p, recurringItems: [...p.recurringItems, item] }));
+    toast.success(`New subscription: ${item.name}`);
   }, []);
 
   const updateRecurringItem = useCallback(
@@ -628,20 +632,19 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       ...p,
       recurringItems: p.recurringItems.filter((r) => r.id !== id),
     }));
+    toast.error("Subscription removed");
   }, []);
 
   // Add spending entry
   const addSpending = useCallback((entry: SpendingEntry) => {
     setProfile((prev) => {
-      // If linked to an account, update balance
+      // 1. Update Account Balances
       let newAccounts = [...prev.accounts];
-
       if (
         entry.type === "transfer" &&
         entry.accountId &&
         entry.destinationAccountId
       ) {
-        // Transfer Logic: Deduct from Source, Add to Destination
         newAccounts = newAccounts.map((acc) => {
           if (acc.id === entry.accountId) {
             return { ...acc, balance: acc.balance - entry.amount };
@@ -652,10 +655,8 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           return acc;
         });
       } else if (entry.accountId) {
-        // Standard Expense/Income Logic
         newAccounts = newAccounts.map((acc) => {
           if (acc.id === entry.accountId) {
-            // Expenses decrease balance, Income increases balance
             if (entry.type === "income") {
               return { ...acc, balance: acc.balance + entry.amount };
             } else {
@@ -666,16 +667,60 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         });
       }
 
+      // 2. Update Spending Summary
+      let newSummaries = [...prev.spendingSummary];
+      // Only track 'expense' type in the spending summary for budgeting purposes
+      // (Income categories like 'salary' have their own summary entries but don't hit budgets)
+      const existingIndex = newSummaries.findIndex(
+        (s) => s.category === entry.category,
+      );
+
+      if (existingIndex >= 0) {
+        newSummaries[existingIndex] = {
+          ...newSummaries[existingIndex],
+          total: newSummaries[existingIndex].total + entry.amount,
+          transactionCount: newSummaries[existingIndex].transactionCount + 1,
+        };
+      } else {
+        newSummaries.push({
+          category: entry.category,
+          total: entry.amount,
+          confidence: entry.confidence,
+          transactionCount: 1,
+        });
+      }
+
+      // 3. Update Budgets (Exclusively for expenses)
+      let newBudgets = [...prev.budgets];
+      if (entry.type !== "income") {
+        newBudgets = newBudgets.map((b) => {
+          if (b.category === entry.category) {
+            return { ...b, spent: b.spent + entry.amount };
+          }
+          return b;
+        });
+      }
+
       return {
         ...prev,
         accounts: newAccounts,
         monthlySpending: [...prev.monthlySpending, entry],
+        spendingSummary: newSummaries,
+        budgets: newBudgets,
         lastUpdated: new Date().toISOString(),
       };
     });
+
+    if (entry.type === "transfer") {
+      toast.success("Transfer completed!");
+    } else if (entry.type === "income") {
+      toast.success("Income logged! 💸");
+    } else {
+      toast.success(`${entry.category} expense added!`);
+    }
   }, []);
 
-  // Add spending summary for a category
+  // Update spending summary (kept for bulk updates if needed, but updated to handle budgets)
   const addSpendingSummary = useCallback(
     (
       category: SpendingCategory,
@@ -683,7 +728,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       confidence: "high" | "medium" | "low",
     ) => {
       setProfile((prev) => {
-        // Update summary
         let newSummaries = [...prev.spendingSummary];
         const existingIndex = newSummaries.findIndex(
           (s) => s.category === category,
@@ -704,7 +748,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        // Update budget spent too
         const newBudgets = prev.budgets.map((b) => {
           if (b.category === category) {
             return { ...b, spent: b.spent + amount };
@@ -739,6 +782,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       goals: [...prev.goals, goal],
       lastUpdated: new Date().toISOString(),
     }));
+    toast.success(`New goal: ${goal.name} 🎯`);
   }, []);
 
   // Update goal
@@ -749,6 +793,9 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         goals: prev.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
         lastUpdated: new Date().toISOString(),
       }));
+      if (updates.current) {
+        toast.success("Progress saved! Every bit counts. 📈");
+      }
     },
     [],
   );
@@ -760,6 +807,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       goals: prev.goals.filter((g) => g.id !== id),
       lastUpdated: new Date().toISOString(),
     }));
+    toast.error("Goal deleted");
   }, []);
 
   // Merge uploaded data

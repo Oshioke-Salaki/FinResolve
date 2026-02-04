@@ -52,7 +52,11 @@ export function GoalCard({
         <div>
           <h3 className="font-semibold text-lg text-slate-800">{title}</h3>
           <p className="text-sm text-gray-400">
-            {deadline ? `By ${deadline}` : "No deadline"}
+            {deadline ? (
+              `By ${deadline}`
+            ) : (
+              <span className="invisible">No deadline</span>
+            )}
           </p>
         </div>
         <div className="bg-gray-50 p-2 rounded-full text-gray-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors cursor-pointer">
@@ -72,7 +76,7 @@ export function GoalCard({
           transition={{ duration: 1.2, ease: "easeOut" }}
           className={`h-full ${color} rounded-full relative`}
         >
-          <div className="absolute right-0 top-0 bottom-0 w-full bg-gradient-to-l from-white/20 to-transparent" />
+          <div className="absolute right-0 top-0 bottom-0 w-full bg-linear-to-l from-white/20 to-transparent" />
         </motion.div>
       </div>
 
@@ -80,7 +84,9 @@ export function GoalCard({
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
           <p className="text-xs text-green-600 font-medium">
-            {percentage >= 100 ? "Goal reached!" : `${percentage.toFixed(0)}% complete`}
+            {percentage >= 100
+              ? "Goal reached!"
+              : `${percentage.toFixed(0)}% complete`}
           </p>
         </div>
 
@@ -99,7 +105,8 @@ export function GoalCard({
                     disabled={isSaving}
                     className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    +{formatCurrency(amount).replace(".00", "").replace("₦", "")}
+                    +
+                    {formatCurrency(amount).replace(".00", "").replace("₦", "")}
                   </button>
                 ))}
                 <button
@@ -116,7 +123,7 @@ export function GoalCard({
                   "flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all",
                   justSaved
                     ? "bg-emerald-100 text-emerald-600"
-                    : "bg-primary/10 text-primary hover:bg-primary/20"
+                    : "bg-primary/10 text-primary hover:bg-primary/20",
                 )}
               >
                 {justSaved ? (

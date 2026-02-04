@@ -19,10 +19,10 @@ import { useFinancial } from "@/contexts/FinancialContext";
 
 const navItems = [
   { name: "Home", href: "/dashboard", icon: Home },
-  { name: "Activity", href: "/activity", icon: Clock },
+  { name: "Budgets and Subs", href: "/budgets", icon: Target },
   { name: "Insights", href: "/insights", icon: Sparkles },
-  { name: "Analysis", href: "/analysis", icon: PieChart },
   { name: "Goals", href: "/goals", icon: Target },
+  { name: "Activity", href: "/activity", icon: Clock },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

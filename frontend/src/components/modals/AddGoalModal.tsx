@@ -63,11 +63,11 @@ export function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalProps) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Deadline
+            Deadline{" "}
+            <span className="text-gray-400 font-normal">(Optional)</span>
           </label>
           <input
             type="month"
-            required
             className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
             value={data.deadline}
             onChange={(e) => setData({ ...data, deadline: e.target.value })}
