@@ -253,9 +253,8 @@ function DashboardContent() {
               const newCurrent = goal.current + payload.amount;
               updateGoal(goal.id, { current: newCurrent });
 
-              // 3. Log as an 'Expense' (money moving from "Safe to spend" to "Goal Safe")
-              // or we can treat it as a transfer if goals are accounts but here they are virtual.
-              // Let's log it as category 'savings'
+              // 3. Log as an 'Expense' (money moving from account to goal)
+              // Note: addSpending already handles account balance deduction when accountId is provided
               addSpending({
                 id: crypto.randomUUID(),
                 category: "savings",
@@ -265,7 +264,8 @@ function DashboardContent() {
                 description: `Saved for ${goal.name}`,
                 date: new Date().toISOString(),
                 createdAt: new Date().toISOString(),
-                type: "expense", // It IS an expense from the 'available budget' perspective
+                accountId: payload.accountId,
+                type: "expense",
               });
             }
           } else if (action.type === "CREATE_GOAL") {

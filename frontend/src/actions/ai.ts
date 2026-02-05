@@ -59,6 +59,8 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
 
   // Get current date info
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentDateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD format
   const daysLeftInMonth =
     new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() -
     now.getDate();
@@ -88,6 +90,9 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
       : "No savings goals set yet";
 
   return `You are FinResolve AI, a friendly and supportive financial coach. You help users understand their money, budget better, and achieve their savings goals.
+
+IMPORTANT - Current Date: ${currentDateStr} (Year: ${currentYear})
+When users mention dates without a year (e.g., "March 30", "next month"), ALWAYS assume the current year (${currentYear}) or the next occurrence of that date. Never default to past years.
 
 User's Financial Context:
 - Name: ${name || "Friend"}
@@ -173,17 +178,22 @@ Guidelines:
   }
   [[/ACTION]]
 
-  Format for Goals:
+  Format for Goals (Saving Money):
   [[ACTION]]
   {
     "type": "UPDATE_GOAL",
     "payload": {
       "amount": 10000,
       "goalName": "Car Savings",
-      "goalId": "GOAL_ID"
+      "goalId": "GOAL_ID",
+      "accountId": "ACCOUNT_ID_TO_DEDUCT_FROM"
     }
   }
   [[/ACTION]]
+
+  IMPORTANT for UPDATE_GOAL: You MUST have both the goal AND the account before executing.
+  - If user doesn't specify which account, ask: "Which account should I deduct from?" and list accounts.
+  - Only execute UPDATE_GOAL when you have: amount, goal (name or ID), AND accountId.
 
   Format for Creating Goals:
   [[ACTION]]
@@ -192,7 +202,7 @@ Guidelines:
     "payload": {
       "name": "New Goal Name",
       "target": 500000,
-      "deadline": "2024-12-31" // Optional
+      "deadline": "${currentYear}-12-31" // Optional - use current year (${currentYear}) for dates
     }
   }
   [[/ACTION]]
@@ -213,9 +223,16 @@ Guidelines:
   - Income: salary, business, gift, other.
   
   Guidelines for Transfers & Goals:
-  - If user says "move 50k from UBA to Kuda", identified "UBA" as source and "Kuda" as destination.
-  - If user says "Add 10k to my Car goal", use UPDATE_GOAL.
-  - If user says "Create a goal for Buying a Laptop with target 500k", use CREATE_GOAL.
+  - LOG_TRANSFER: ONLY use for account-to-account transfers (e.g., "move 50k from UBA to Kuda").
+  - UPDATE_GOAL: Use when user wants to SAVE money or add to a savings goal. This includes:
+    * "save 7000", "I saved 10k", "put 5000 in savings", "transfer to savings"
+    * "Add 10k to my Car goal", "put money towards my goal"
+    * Any mention of saving money, even without specifying a goal name
+  - IMPORTANT: When user says "save", "saved", "transfer to savings" → ALWAYS use UPDATE_GOAL, NOT LOG_TRANSFER.
+  - If user wants to save but doesn't specify which goal:
+    * If there's only 1 goal, use that goal automatically.
+    * If there are multiple goals, ask: "Which goal would you like to save towards?" and list the goals.
+  - CREATE_GOAL: Use when user wants to create a NEW goal (e.g., "Create a goal for Buying a Laptop with target 500k").
   - List of active Goals:
     ${profile.goals.map((g) => `- ${g.name} (ID: ${g.id}, Current: ${formatCurrency(g.current)})`).join("\n    ")}
   - Match account/goal names to IDs in the list above.
