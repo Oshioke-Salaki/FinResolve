@@ -42,7 +42,7 @@ export function DailyTrendChart({
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               padding: "8px 12px",
             }}
-            formatter={(value: number) => [
+            formatter={(value?: number) => [
               formatCurrency(Number(value || 0), currency),
               "Spent",
             ]}
@@ -97,9 +97,10 @@ export function CategoryPieChart({
               border: "none",
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
             }}
-            formatter={(value: number, _name: string, props: { payload: { category: SpendingCategory } }) => [
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formatter={(value: any, _name: any, props: any) => [
               formatCurrency(Number(value || 0), currency),
-              CATEGORY_META[props.payload.category].label,
+              (CATEGORY_META as Record<string, { label: string }>)[props?.payload?.category ?? "other"]?.label ?? "",
             ]}
           />
         </PieChart>

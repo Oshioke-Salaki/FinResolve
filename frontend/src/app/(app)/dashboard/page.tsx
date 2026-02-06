@@ -103,7 +103,7 @@ function DashboardContent() {
     const daysRemaining = daysInMonth - today.getDate();
 
     // 1. Check for specific category budget overruns (highest priority)
-    const overBudgetCategories = profile.budgets
+    const overBudgetCategories = (profile.budgets || [])
       .filter((b) => b.spent > b.limit)
       .sort((a, b) => b.spent / b.limit - a.spent / a.limit);
 
