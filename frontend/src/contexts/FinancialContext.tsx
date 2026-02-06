@@ -18,7 +18,9 @@ import {
   type Account,
   type Budget,
   type RecurringItem,
+  type CurrencyCode,
   createEmptyProfile,
+  DEFAULT_CURRENCY,
 } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -33,6 +35,7 @@ interface FinancialContextType {
   profile: UserFinancialProfile;
   isLoading: boolean;
   isSyncing: boolean;
+  setCurrency: (currency: CurrencyCode) => void;
   updateIncome: (income: IncomeData) => void;
   // Account methods
   addAccount: (account: Account) => void;
@@ -144,6 +147,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
             const loadedProfile: UserFinancialProfile = {
               id: dbProfile.id,
               name: dbProfile.name || undefined,
+              currency: (dbProfile.currency as CurrencyCode) || DEFAULT_CURRENCY,
               income: dbProfile.income_amount
                 ? {
                     amount: Number(dbProfile.income_amount),
@@ -309,6 +313,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           id: profileId,
           user_id: user.id,
           name: newProfile.name || null,
+          currency: newProfile.currency || DEFAULT_CURRENCY,
           income_amount: newProfile.income?.amount || null,
           income_confidence: newProfile.income?.confidence || null,
           income_is_estimate: newProfile.income?.isEstimate || false,
@@ -841,6 +846,15 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  // Set currency
+  const setCurrency = useCallback((currency: CurrencyCode) => {
+    setProfile((prev) => ({
+      ...prev,
+      currency,
+      lastUpdated: new Date().toISOString(),
+    }));
+  }, []);
+
   // Reset profile
   const resetProfile = useCallback(async () => {
     const oldProfileId = profile.id;
@@ -863,6 +877,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         profile,
         isLoading,
         isSyncing,
+        setCurrency,
         updateIncome,
         addAccount,
         updateAccount,

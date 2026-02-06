@@ -2,20 +2,30 @@ import {
   type SpendingCategory,
   type ConfidenceLevel,
   type ParsedInput,
+  type CurrencyCode,
+  CURRENCIES,
+  DEFAULT_CURRENCY,
 } from "./types";
 
 // ========================================
 // Natural Language Parser for Financial Input
 // ========================================
 
-// Currency patterns (₦, NGN, Naira, etc.)
+// Currency patterns - supports multiple currencies
+// Pattern matches: $100, €50, £30, ₦5000, ₹1000, R500, etc.
 const CURRENCY_PATTERNS = [
-  /₦\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
-  /NGN\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
-  /naira\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
-  /([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?\s*(?:naira|NGN|₦)/gi,
-  /([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)/gi, // Just numbers with k/m
-  /([\d,]+(?:\.\d{2})?)/g, // Plain numbers as fallback
+  // Specific currency symbols with amount
+  /[$€£₦₹]\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
+  // Currency codes (USD, EUR, GBP, NGN, INR, KES, ZAR, CAD, AUD)
+  /(?:USD|EUR|GBP|NGN|INR|KES|ZAR|CAD|AUD)\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
+  // Currency names
+  /(?:dollars?|euros?|pounds?|naira|rupees?|shillings?|rand)\s*([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?/gi,
+  // Amount followed by currency
+  /([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)?\s*(?:dollars?|euros?|pounds?|naira|rupees?|shillings?|rand|USD|EUR|GBP|NGN|INR|KES|ZAR|CAD|AUD|[$€£₦₹])/gi,
+  // Just numbers with k/m multiplier (uses user's default currency)
+  /([\d,]+(?:\.\d{2})?)\s*(k|m|million|thousand)/gi,
+  // Plain numbers as fallback (uses user's default currency)
+  /([\d,]+(?:\.\d{2})?)/g,
 ];
 
 // Confidence modifiers
@@ -335,20 +345,35 @@ export function isGoalRelated(text: string): boolean {
 }
 
 /**
- * Format amount for display
+ * Format amount for display with currency support
  */
 export function formatCurrency(
   amount: number,
+  currencyCode: CurrencyCode = DEFAULT_CURRENCY,
   compact: boolean = false,
 ): string {
+  const currency = CURRENCIES[currencyCode] || CURRENCIES[DEFAULT_CURRENCY];
+  const { symbol, locale } = currency;
+
   if (compact) {
     if (amount >= 1000000) {
-      return `₦${(amount / 1000000).toFixed(1)}M`;
+      return `${symbol}${(amount / 1000000).toFixed(1)}M`;
     } else if (amount >= 1000) {
-      return `₦${(amount / 1000).toFixed(0)}k`;
+      return `${symbol}${(amount / 1000).toFixed(0)}k`;
     }
   }
-  return `₦${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+  // Use Intl.NumberFormat for proper locale-aware formatting
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // Fallback to simple formatting if Intl fails
+    return `${symbol}${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+  }
 }
 
 /**

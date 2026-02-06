@@ -12,12 +12,15 @@ import {
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
-import type { Account, AccountType } from "@/lib/types";
+import type { Account, AccountType, CurrencyCode } from "@/lib/types";
+import { CURRENCIES } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function AccountCards() {
   const { profile, addAccount, deleteAccount } = useFinancial();
   const [showAddForm, setShowAddForm] = useState(false);
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
 
   // Filter accounts if necessary or show all
   const accounts = profile.accounts || [];
@@ -58,7 +61,7 @@ export function AccountCards() {
           </div>
           <p className="text-sm font-medium text-slate-400 mb-1">Net Worth</p>
           <p className="text-3xl font-bold text-white tracking-tight">
-            {formatCurrency(netWorth)}
+            {formatCurrency(netWorth, currency)}
           </p>
           <div className="mt-4 flex items-center gap-2 text-xs text-indigo-300 bg-indigo-500/10 w-fit px-2 py-1 rounded-md border border-indigo-500/20">
             <span>Across {accounts.length} accounts</span>
@@ -70,6 +73,7 @@ export function AccountCards() {
           <AccountCard
             key={account.id}
             account={account}
+            currency={currency}
             onDelete={deleteAccount}
           />
         ))}
@@ -93,6 +97,8 @@ export function AccountCards() {
           <AddAccountModal
             onClose={() => setShowAddForm(false)}
             onAdd={addAccount}
+            currency={currency}
+            currencySymbol={currencySymbol}
           />
         )}
       </AnimatePresence>
@@ -102,9 +108,11 @@ export function AccountCards() {
 
 function AccountCard({
   account,
+  currency,
   onDelete,
 }: {
   account: Account;
+  currency: CurrencyCode;
   onDelete: (id: string) => void;
 }) {
   const getIcon = (type: AccountType) => {
@@ -172,7 +180,7 @@ function AccountCard({
           {account.name}
         </h3>
         <p className="text-lg font-bold text-white mt-0.5">
-          {formatCurrency(account.balance)}
+          {formatCurrency(account.balance, currency)}
         </p>
         <p className="text-xs text-slate-500 mt-1">{getLabel(account.type)}</p>
       </div>
@@ -183,9 +191,13 @@ function AccountCard({
 function AddAccountModal({
   onClose,
   onAdd,
+  currency,
+  currencySymbol,
 }: {
   onClose: () => void;
   onAdd: (acc: Account) => void;
+  currency: CurrencyCode;
+  currencySymbol: string;
 }) {
   const [name, setName] = useState("");
   const [balance, setBalance] = useState("");
@@ -200,7 +212,7 @@ function AddAccountModal({
       name,
       balance: Number(balance.replace(/[^0-9.-]+/g, "")),
       type,
-      currency: "NGN",
+      currency: currency,
       isPrimary: false,
     });
     onClose();
@@ -239,7 +251,7 @@ function AddAccountModal({
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-slate-500 text-sm">
-                  ₦
+                  {currencySymbol}
                 </span>
                 <input
                   type="text"

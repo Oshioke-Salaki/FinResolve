@@ -1,6 +1,6 @@
 "use server";
 
-import { generateWeeklyInsight } from "@/lib/coach/generateInsight";
+import { generateWeeklyInsight, type SpendingInsight } from "@/lib/coach/generateInsight";
 import { type UserFinancialProfile, type SpendingCategory } from "@/lib/types";
 
 export interface DashboardAnalytics {
@@ -12,7 +12,7 @@ export interface DashboardAnalytics {
     percentage: number;
   }[];
   topCategory: { category: SpendingCategory; amount: number } | null;
-  insight: any;
+  insight: SpendingInsight;
 }
 
 export async function getWeeklyInsightAction(

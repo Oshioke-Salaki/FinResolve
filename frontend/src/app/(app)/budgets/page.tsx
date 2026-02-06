@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/parseInput";
 
 export default function BudgetsPage() {
   const { profile } = useFinancial();
+  const currency = profile.currency;
 
   const totalBudgetLimit = profile.budgets.reduce((sum, b) => sum + b.limit, 0);
   const totalBudgetSpent = profile.budgets.reduce((sum, b) => sum + b.spent, 0);
@@ -61,7 +62,7 @@ export default function BudgetsPage() {
           <div className="space-y-3">
             <div className="flex items-baseline gap-2">
               <h3 className="text-3xl font-bold text-slate-800">
-                {formatCurrency(totalBudgetLimit)}
+                {formatCurrency(totalBudgetLimit, currency)}
               </h3>
             </div>
             <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -71,7 +72,7 @@ export default function BudgetsPage() {
               />
             </div>
             <p className="text-xs text-slate-400">
-              {formatCurrency(totalBudgetSpent)} spent this month (
+              {formatCurrency(totalBudgetSpent, currency)} spent this month (
               {Math.round(budgetUtilization)}%)
             </p>
           </div>
@@ -88,7 +89,7 @@ export default function BudgetsPage() {
           </div>
           <div className="space-y-1">
             <h3 className="text-3xl font-bold text-slate-800">
-              {formatCurrency(totalSubs)}
+              {formatCurrency(totalSubs, currency)}
             </h3>
             <p className="text-xs text-slate-400">
               Across {profile.recurringItems.length} recurring items
@@ -112,6 +113,7 @@ export default function BudgetsPage() {
                   0,
                   (profile.income?.amount || 0) - totalBudgetSpent - totalSubs,
                 ),
+                currency,
               )}
             </h3>
             <p className="text-xs text-slate-400">

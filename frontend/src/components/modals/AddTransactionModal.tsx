@@ -6,7 +6,7 @@ import { Plus } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 
-import { CATEGORY_META } from "@/lib/types";
+import { CATEGORY_META, CURRENCIES } from "@/lib/types";
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -25,6 +25,8 @@ export function AddTransactionModal({
   onAdd,
 }: AddTransactionModalProps) {
   const { profile } = useFinancial();
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [data, setData] = useState({
     amount: "",
@@ -67,7 +69,7 @@ export function AddTransactionModal({
           >
             {profile.accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
-                {acc.name} ({formatCurrency(acc.balance)})
+                {acc.name} ({formatCurrency(acc.balance, currency)})
               </option>
             ))}
           </select>
@@ -75,7 +77,7 @@ export function AddTransactionModal({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Amount (₦)
+            Amount ({currencySymbol})
           </label>
           <input
             type="number"

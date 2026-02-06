@@ -225,7 +225,14 @@ export default function LandingPage() {
   );
 }
 
-function FeatureCard({ icon, iconBg, title, description }: any) {
+interface FeatureCardProps {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+}
+
+function FeatureCard({ icon, iconBg, title, description }: FeatureCardProps) {
   return (
     <div className="p-8 rounded-3xl bg-slate-50 border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 group">
       <div

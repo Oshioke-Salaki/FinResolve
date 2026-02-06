@@ -1,7 +1,7 @@
 "use client";
 
 import { useFinancial } from "@/contexts/FinancialContext";
-import { CATEGORY_META, type SpendingEntry } from "@/lib/types";
+import { CATEGORY_META, type SpendingEntry, type CurrencyCode } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
@@ -19,7 +19,7 @@ function ActivitySkeleton() {
   );
 }
 
-function ActivityItem({ entry }: { entry: SpendingEntry }) {
+function ActivityItem({ entry, currency }: { entry: SpendingEntry; currency: CurrencyCode }) {
   const meta = CATEGORY_META[entry.category];
   // Default to debit (expense) unless explicitly marked as income
   const isIncome = entry.type === "income";
@@ -85,7 +85,7 @@ function ActivityItem({ entry }: { entry: SpendingEntry }) {
         <span
           className={`text-sm font-semibold ${isDebit ? "text-red-600" : "text-green-600"}`}
         >
-          {isIncome ? "+" : "-"} {formatCurrency(Math.abs(entry.amount))}
+          {isIncome ? "+" : "-"} {formatCurrency(Math.abs(entry.amount), currency)}
         </span>
       </div>
     </div>
@@ -94,6 +94,7 @@ function ActivityItem({ entry }: { entry: SpendingEntry }) {
 
 export function RecentActivityFeed() {
   const { profile, isLoading } = useFinancial();
+  const currency = profile.currency;
 
   if (isLoading) {
     return (
@@ -155,7 +156,7 @@ export function RecentActivityFeed() {
       </div>
       <div className="space-y-1">
         {recentTransactions.map((entry) => (
-          <ActivityItem key={entry.id} entry={entry} />
+          <ActivityItem key={entry.id} entry={entry} currency={currency} />
         ))}
       </div>
     </div>

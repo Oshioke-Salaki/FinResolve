@@ -13,7 +13,7 @@ import { StepIncome } from "@/components/onboarding/StepIncome";
 import { StepExpenses } from "@/components/onboarding/StepExpenses";
 import { StepGoals } from "@/components/onboarding/StepGoals";
 
-import { SpendingCategory } from "@/lib/types";
+import { SpendingCategory, CurrencyCode } from "@/lib/types";
 
 type Step = "welcome" | "income" | "expenses" | "goals";
 
@@ -23,6 +23,7 @@ export default function OnboardingPage() {
   const {
     profile,
     setUserName,
+    setCurrency,
     updateIncome,
     addSpendingSummary,
     addGoal,
@@ -61,7 +62,8 @@ export default function OnboardingPage() {
     setCurrentStep("income");
   };
 
-  const handleIncomeComplete = (amount: number) => {
+  const handleIncomeComplete = (amount: number, currency: CurrencyCode) => {
+    setCurrency(currency);
     updateIncome({
       amount,
       confidence: "high",
@@ -129,6 +131,7 @@ export default function OnboardingPage() {
             <StepIncome
               onComplete={handleIncomeComplete}
               initialValue={profile.income?.amount}
+              initialCurrency={profile.currency}
             />
           </WizardLayout>
         );

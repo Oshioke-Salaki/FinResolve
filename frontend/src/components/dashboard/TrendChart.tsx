@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
+import { CURRENCIES } from "@/lib/types";
 
 function ChartSkeleton() {
   return (
@@ -33,6 +34,8 @@ function ChartSkeleton() {
 
 export function TrendChart() {
   const { profile, isLoading } = useFinancial();
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
 
   if (isLoading) {
     return <ChartSkeleton />;
@@ -155,7 +158,7 @@ export function TrendChart() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#64748B", fontSize: 12 }}
-              tickFormatter={(value) => `₦${(value / 1000).toFixed(0)}k`}
+              tickFormatter={(value) => `${currencySymbol}${(value / 1000).toFixed(0)}k`}
             />
             <Tooltip
               cursor={{ fill: "#F1F5F9" }}
@@ -165,7 +168,7 @@ export function TrendChart() {
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
               }}
               formatter={(value, name) => [
-                formatCurrency(Number(value)),
+                formatCurrency(Number(value), currency),
                 name === "spend" ? "Spent" : "Budget",
               ]}
             />

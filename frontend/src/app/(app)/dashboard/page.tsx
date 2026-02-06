@@ -9,7 +9,16 @@ import { formatCurrency } from "@/lib/parseInput";
 import { useAuth } from "@/contexts/AuthContext";
 import { generateAIResponse } from "@/actions/ai";
 import { getGreeting } from "@/lib/aiLogic";
-import { type UploadedTransaction, type SpendingEntry } from "@/lib/types";
+import {
+  type UploadedTransaction,
+  type SpendingEntry,
+  type LogExpensePayload,
+  type LogIncomePayload,
+  type LogTransferPayload,
+  type UpdateGoalPayload,
+  type CreateGoalPayload,
+  type CreateBudgetPayload,
+} from "@/lib/types";
 
 // New components
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -29,7 +38,7 @@ import { MobileChatInput } from "@/components/chat/MobileChatInput";
 
 const SUGGESTIONS = [
   "Where is my money going?",
-  "Can I afford a ₦50k purchase?",
+  "Can I afford a $10k purchase?",
   "How much can I save this month?",
   "Analyze my spending habits",
 ];
@@ -102,7 +111,7 @@ function DashboardContent() {
       const top = overBudgetCategories[0];
       const meta = CATEGORY_META[top.category];
       const overAmount = top.spent - top.limit;
-      return `Warning: You are ${formatCurrency(overAmount)} over your ${meta.label} budget! 🚨`;
+      return `Warning: You are ${formatCurrency(overAmount, profile.currency)} over your ${meta.label} budget! 🚨`;
     }
 
     // 2. Check for overall monthly budget
@@ -185,7 +194,7 @@ function DashboardContent() {
 
         for (const action of actions) {
           if (action.type === "LOG_EXPENSE") {
-            const payload = action.payload;
+            const payload = action.payload as LogExpensePayload;
 
             if (!payload.amount || payload.amount <= 0) {
               console.warn("AI attempted to log expense with 0 amount");
@@ -206,7 +215,7 @@ function DashboardContent() {
               type: "expense",
             });
           } else if (action.type === "LOG_INCOME") {
-            const payload = action.payload;
+            const payload = action.payload as LogIncomePayload;
 
             if (!payload.amount || payload.amount <= 0) {
               console.warn("AI attempted to log income with 0 amount");
@@ -226,7 +235,7 @@ function DashboardContent() {
               type: "income",
             });
           } else if (action.type === "LOG_TRANSFER") {
-            const payload = action.payload;
+            const payload = action.payload as LogTransferPayload;
 
             addSpending({
               id: crypto.randomUUID(),
@@ -242,7 +251,7 @@ function DashboardContent() {
               type: "transfer",
             });
           } else if (action.type === "UPDATE_GOAL") {
-            const payload = action.payload;
+            const payload = action.payload as UpdateGoalPayload;
             // 1. Find Goal
             const goal = profile.goals.find(
               (g) =>
@@ -271,7 +280,7 @@ function DashboardContent() {
               });
             }
           } else if (action.type === "CREATE_GOAL") {
-            const payload = action.payload;
+            const payload = action.payload as CreateGoalPayload;
             addGoal({
               id: crypto.randomUUID(),
               name: payload.name,
@@ -282,7 +291,7 @@ function DashboardContent() {
               createdAt: new Date().toISOString(),
             });
           } else if (action.type === "CREATE_BUDGET") {
-            const payload = action.payload;
+            const payload = action.payload as CreateBudgetPayload;
             addBudget({
               id: crypto.randomUUID(),
               category: payload.category,

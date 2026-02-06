@@ -11,15 +11,17 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { CATEGORY_META, SpendingCategory } from "@/lib/types";
+import { CATEGORY_META, SpendingCategory, CurrencyCode, DEFAULT_CURRENCY } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
 
 // --- Components ---
 
 export function DailyTrendChart({
   data,
+  currency = DEFAULT_CURRENCY,
 }: {
   data: { day: string; amount: number }[];
+  currency?: CurrencyCode;
 }) {
   return (
     <div className="h-[250px] w-full">
@@ -40,8 +42,8 @@ export function DailyTrendChart({
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
               padding: "8px 12px",
             }}
-            formatter={(value: any) => [
-              formatCurrency(Number(value || 0)),
+            formatter={(value: number) => [
+              formatCurrency(Number(value || 0), currency),
               "Spent",
             ]}
           />
@@ -60,8 +62,10 @@ export function DailyTrendChart({
 
 export function CategoryPieChart({
   data,
+  currency = DEFAULT_CURRENCY,
 }: {
   data: { category: SpendingCategory; amount: number; percentage: number }[];
+  currency?: CurrencyCode;
 }) {
   // Filter out tiny segments for cleaner chart
   const chartData = data.filter((d) => d.percentage > 2);
@@ -93,9 +97,9 @@ export function CategoryPieChart({
               border: "none",
               boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
             }}
-            formatter={(value: any, name: any, props: any) => [
-              formatCurrency(Number(value || 0)),
-              CATEGORY_META[props.payload.category as SpendingCategory].label,
+            formatter={(value: number, _name: string, props: { payload: { category: SpendingCategory } }) => [
+              formatCurrency(Number(value || 0), currency),
+              CATEGORY_META[props.payload.category].label,
             ]}
           />
         </PieChart>

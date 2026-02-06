@@ -2,7 +2,12 @@
 
 import { opikClient } from "@/lib/opikClient";
 import { openai, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
-import { type UserFinancialProfile, CATEGORY_META } from "@/lib/types";
+import {
+  type UserFinancialProfile,
+  type AIAction,
+  CATEGORY_META,
+  CURRENCIES,
+} from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
 
 // Helper to log to terminal
@@ -19,7 +24,10 @@ function terminalLog(message: string, data?: unknown) {
  * Build system prompt with user's financial context
  */
 function buildSystemPrompt(profile: UserFinancialProfile): string {
-  const { name, income, spendingSummary, goals } = profile;
+  const { name, income, spendingSummary, goals, currency } = profile;
+  const currencyConfig = CURRENCIES[currency];
+  const currencyName = currencyConfig?.name || "US Dollar";
+  const currencySymbol = currencyConfig?.symbol || "$";
 
   // Calculate totals
   const totalSpending = spendingSummary.reduce((sum, s) => sum + s.total, 0);
@@ -29,7 +37,9 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
   const accounts = profile.accounts || [];
   const netWorth = accounts.reduce((sum, acc) => sum + acc.balance, 0);
   const accountsList = accounts
-    .map((a) => `- ${a.name}: ${formatCurrency(a.balance)} (${a.type})`)
+    .map(
+      (a) => `- ${a.name}: ${formatCurrency(a.balance, currency)} (${a.type})`,
+    )
     .join("\n");
 
   // Calculate Recurring/Fixed Costs
@@ -39,7 +49,10 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
     0,
   );
   const recurringList = recurringItems
-    .map((r) => `- ${r.name}: ${formatCurrency(r.amount)} (${r.frequency})`)
+    .map(
+      (r) =>
+        `- ${r.name}: ${formatCurrency(r.amount, currency)} (${r.frequency})`,
+    )
     .join("\n");
 
   // Calculate Safe to Spend (Logic aligned with FinancialPulseCards)
@@ -74,7 +87,7 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
     .slice(0, 5)
     .map((s) => {
       const meta = CATEGORY_META[s.category];
-      return `${meta.emoji} ${meta.label}: ${formatCurrency(s.total)}`;
+      return `${meta.emoji} ${meta.label}: ${formatCurrency(s.total, currency)}`;
     })
     .join("\n  ");
 
@@ -84,7 +97,7 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
       ? goals
           .map((g) => {
             const progress = ((g.current / g.target) * 100).toFixed(0);
-            return `- ${g.name}: ${formatCurrency(g.current)}/${formatCurrency(g.target)} (${progress}%)`;
+            return `- ${g.name}: ${formatCurrency(g.current, currency)}/${formatCurrency(g.target, currency)} (${progress}%)`;
           })
           .join("\n  ")
       : "No savings goals set yet";
@@ -96,11 +109,11 @@ When users mention dates without a year (e.g., "March 30", "next month"), ALWAYS
 
 User's Financial Context:
 - Name: ${name || "Friend"}
-- Net Worth (Total Cash): ${formatCurrency(netWorth)}
-- Monthly Income: ${monthlyIncome > 0 ? formatCurrency(monthlyIncome) : "Not set"}
-- Total Monthly Spending: ${formatCurrency(totalSpending)}
-- Committed Fixed Costs (Bills): ${formatCurrency(committedSpend)}
-- 'Safe to Spend' Remainder: ${formatCurrency(budgetRemaining)} (${formatCurrency(safeDailySpend)}/day for ${daysLeftInMonth} days)
+- Net Worth (Total Cash): ${formatCurrency(netWorth, currency)}
+- Monthly Income: ${monthlyIncome > 0 ? formatCurrency(monthlyIncome, currency) : "Not set"}
+- Total Monthly Spending: ${formatCurrency(totalSpending, currency)}
+- Committed Fixed Costs (Bills): ${formatCurrency(committedSpend, currency)}
+- 'Safe to Spend' Remainder: ${formatCurrency(budgetRemaining, currency)} (${formatCurrency(safeDailySpend, currency)}/day for ${daysLeftInMonth} days)
 
 Accounts:
 ${accountsList || "No accounts linked"}
@@ -116,11 +129,11 @@ Savings Goals:
   ${goalsInfo}
 
 Budgets:
-  ${profile.budgets.length > 0 ? profile.budgets.map((b) => `- ${b.category}: ${formatCurrency(b.limit)} limit (${formatCurrency(b.spent)} spent)`).join("\n  ") : "No budgets set yet"}
+  ${profile.budgets.length > 0 ? profile.budgets.map((b) => `- ${b.category}: ${formatCurrency(b.limit, currency)} limit (${formatCurrency(b.spent, currency)} spent)`).join("\n  ") : "No budgets set yet"}
 
 Guidelines:
 - Be warm, supportive, and non-judgmental about money
-- Use Nigerian Naira (₦) for all currency amounts
+- Use ${currencyName} (${currencySymbol}) for all currency amounts
 - Give specific, actionable advice based on their actual financial data when available
 - For greetings ("hi", "hello", "hey"): Respond warmly and offer to help with their finances
 - For general questions (date, weather, etc.): Answer helpfully, then naturally connect to their financial context (e.g., "It's January 30th! You've got ${daysLeftInMonth} days left to hit your savings goals this month!")
@@ -234,7 +247,7 @@ Guidelines:
     * If there are multiple goals, ask: "Which goal would you like to save towards?" and list the goals.
   - CREATE_GOAL: Use when user wants to create a NEW goal (e.g., "Create a goal for Buying a Laptop with target 500k").
   - List of active Goals:
-    ${profile.goals.map((g) => `- ${g.name} (ID: ${g.id}, Current: ${formatCurrency(g.current)})`).join("\n    ")}
+    ${profile.goals.map((g) => `- ${g.name} (ID: ${g.id}, Current: ${formatCurrency(g.current, currency)})`).join("\n    ")}
   - Match account/goal names to IDs in the list above.
   - If accounts/goals are not found, ask for clarification.
   
@@ -277,7 +290,10 @@ export async function generateAIResponse(
       content: msg.content,
     }));
 
-    const messages: any[] = [
+    const messages: Array<{
+      role: "system" | "user" | "assistant";
+      content: string;
+    }> = [
       { role: "system", content: systemPrompt },
       ...recentHistory,
       { role: "user", content: query },
@@ -360,7 +376,7 @@ export async function generateAIResponse(
     const matches = [...responseText.matchAll(actionRegex)];
 
     let cleanContent = responseText;
-    const parsedActions: any[] = []; // Changed to array
+    const parsedActions: AIAction[] = [];
 
     if (matches.length > 0) {
       matches.forEach((match) => {

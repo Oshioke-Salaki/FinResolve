@@ -6,8 +6,8 @@ import { Plus, Calendar, Clock, AlertTriangle, ArrowRight } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
-import type { RecurringItem, SpendingCategory } from "@/lib/types";
-import { CATEGORY_META } from "@/lib/types";
+import type { RecurringItem, SpendingCategory, CurrencyCode } from "@/lib/types";
+import { CATEGORY_META, CURRENCIES } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface RecurringBillsProps {
@@ -17,6 +17,8 @@ interface RecurringBillsProps {
 export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
   const { profile, addRecurringItem, deleteRecurringItem } = useFinancial();
   const [showAddForm, setShowAddForm] = useState(false);
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
 
   const items = profile.recurringItems || [];
 
@@ -69,6 +71,7 @@ export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
           <BillCard
             key={item.id}
             item={item}
+            currency={currency}
             onDelete={deleteRecurringItem}
             hideDelete={isPreview}
           />
@@ -90,7 +93,7 @@ export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
           <div className="p-3 bg-purple-50 rounded-xl flex justify-between items-center text-sm">
             <span className="font-medium text-purple-700">Total Monthly</span>
             <span className="font-bold text-purple-900">
-              {formatCurrency(totalMonthly)}
+              {formatCurrency(totalMonthly, currency)}
             </span>
           </div>
         )}
@@ -101,6 +104,7 @@ export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
           <AddRecurringModal
             onClose={() => setShowAddForm(false)}
             onAdd={addRecurringItem}
+            currencySymbol={currencySymbol}
           />
         )}
       </AnimatePresence>
@@ -110,10 +114,12 @@ export function RecurringBills({ isPreview = false }: RecurringBillsProps) {
 
 function BillCard({
   item,
+  currency,
   onDelete,
   hideDelete = false,
 }: {
   item: RecurringItem;
+  currency: CurrencyCode;
   onDelete: (id: string) => void;
   hideDelete?: boolean;
 }) {
@@ -140,7 +146,7 @@ function BillCard({
 
       <div className="flex items-center gap-3">
         <span className="font-bold text-slate-900">
-          {formatCurrency(item.amount)}
+          {formatCurrency(item.amount, currency)}
         </span>
         {!hideDelete && (
           <button
@@ -158,9 +164,11 @@ function BillCard({
 function AddRecurringModal({
   onClose,
   onAdd,
+  currencySymbol,
 }: {
   onClose: () => void;
   onAdd: (r: RecurringItem) => void;
+  currencySymbol: string;
 }) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -220,7 +228,7 @@ function AddRecurringModal({
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-2 text-slate-400 text-sm">
-                    ₦
+                    {currencySymbol}
                   </span>
                   <input
                     type="text"

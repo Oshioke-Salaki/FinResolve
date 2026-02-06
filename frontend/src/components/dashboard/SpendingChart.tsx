@@ -49,6 +49,7 @@ function ChartSkeleton() {
 
 export function SpendingChart() {
   const { profile, isLoading } = useFinancial();
+  const currency = profile.currency;
 
   if (isLoading) {
     return <ChartSkeleton />;
@@ -105,7 +106,7 @@ export function SpendingChart() {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => [formatCurrency(Number(value)), "Amount"]}
+              formatter={(value) => [formatCurrency(Number(value), currency), "Amount"]}
               contentStyle={{
                 borderRadius: "12px",
                 border: "none",
@@ -119,7 +120,7 @@ export function SpendingChart() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="text-center">
             <span className="block text-2xl font-bold text-slate-800">
-              {formatCurrency(totalSpending).replace(".00", "")}
+              {formatCurrency(totalSpending, currency).replace(".00", "")}
             </span>
             <span className="text-xs text-gray-500">Total</span>
           </div>

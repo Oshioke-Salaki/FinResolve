@@ -2,6 +2,90 @@
 // Financial Data Types for FinResolve AI
 // ========================================
 
+// Supported currencies
+export type CurrencyCode =
+  | "USD"
+  | "EUR"
+  | "GBP"
+  | "NGN"
+  | "INR"
+  | "KES"
+  | "ZAR"
+  | "CAD"
+  | "AUD";
+
+export interface CurrencyConfig {
+  code: CurrencyCode;
+  symbol: string;
+  name: string;
+  locale: string;
+  flag: string;
+}
+
+// Currency configurations - USD first as default for global hackathon
+export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
+  USD: {
+    code: "USD",
+    symbol: "$",
+    name: "US Dollar",
+    locale: "en-US",
+    flag: "🇺🇸",
+  },
+  EUR: { code: "EUR", symbol: "€", name: "Euro", locale: "de-DE", flag: "🇪🇺" },
+  GBP: {
+    code: "GBP",
+    symbol: "£",
+    name: "British Pound",
+    locale: "en-GB",
+    flag: "🇬🇧",
+  },
+  NGN: {
+    code: "NGN",
+    symbol: "₦",
+    name: "Nigerian Naira",
+    locale: "en-NG",
+    flag: "🇳🇬",
+  },
+  INR: {
+    code: "INR",
+    symbol: "₹",
+    name: "Indian Rupee",
+    locale: "en-IN",
+    flag: "🇮🇳",
+  },
+  KES: {
+    code: "KES",
+    symbol: "KSh",
+    name: "Kenyan Shilling",
+    locale: "en-KE",
+    flag: "🇰🇪",
+  },
+  ZAR: {
+    code: "ZAR",
+    symbol: "R",
+    name: "South African Rand",
+    locale: "en-ZA",
+    flag: "🇿🇦",
+  },
+  CAD: {
+    code: "CAD",
+    symbol: "C$",
+    name: "Canadian Dollar",
+    locale: "en-CA",
+    flag: "🇨🇦",
+  },
+  AUD: {
+    code: "AUD",
+    symbol: "A$",
+    name: "Australian Dollar",
+    locale: "en-AU",
+    flag: "🇦🇺",
+  },
+};
+
+// Default currency for new users
+export const DEFAULT_CURRENCY: CurrencyCode = "USD";
+
 // Confidence level for user-provided data
 export type ConfidenceLevel = "high" | "medium" | "low";
 
@@ -112,6 +196,7 @@ export interface SpendingSummary {
 export interface UserFinancialProfile {
   id: string;
   name?: string;
+  currency: CurrencyCode; // User's preferred currency
   income: IncomeData | null;
   accounts: Account[]; // NEW
   budgets: Budget[]; // NEW
@@ -211,7 +296,18 @@ export type AIActionType =
 
 export interface AIAction {
   type: AIActionType;
-  payload: any;
+  payload:
+    | LogExpensePayload
+    | LogIncomePayload
+    | LogTransferPayload
+    | UpdateGoalPayload
+    | CreateGoalPayload
+    | CreateBudgetPayload;
+}
+
+export interface CreateBudgetPayload {
+  category: SpendingCategory;
+  limit: number;
 }
 
 export interface LogExpensePayload {
@@ -239,6 +335,7 @@ export interface UpdateGoalPayload {
   amount: number;
   goalName: string; // AI tries to fuzzy match this
   goalId?: string;
+  accountId?: string;
 }
 
 export interface CreateGoalPayload {
@@ -250,6 +347,7 @@ export interface CreateGoalPayload {
 // Default empty profile
 export const createEmptyProfile = (): UserFinancialProfile => ({
   id: crypto.randomUUID(),
+  currency: DEFAULT_CURRENCY,
   income: null,
   accounts: [],
   budgets: [],

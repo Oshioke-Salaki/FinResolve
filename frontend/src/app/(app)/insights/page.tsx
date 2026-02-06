@@ -18,6 +18,7 @@ import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
 
 export default function InsightsPage() {
   const { profile, isLoading, addSpending } = useFinancial();
+  const currency = profile.currency;
   const [data, setData] = useState<DashboardAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -117,7 +118,7 @@ export default function InsightsPage() {
               Total Spent
             </p>
             <h3 className="text-3xl font-bold text-slate-900">
-              {formatCurrency(data.totalSpent)}
+              {formatCurrency(data.totalSpent, currency)}
             </h3>
             <p className="text-xs text-slate-400 mt-2">Last 7 days</p>
           </div>
@@ -133,7 +134,7 @@ export default function InsightsPage() {
               Daily Average
             </p>
             <h3 className="text-3xl font-bold text-slate-900">
-              {formatCurrency(dailyAverage)}
+              {formatCurrency(dailyAverage, currency)}
             </h3>
             <p className="text-xs text-slate-400 mt-2">Per day</p>
           </div>
@@ -156,7 +157,7 @@ export default function InsightsPage() {
               </h3>
               {data.topCategory && (
                 <span className="text-sm font-medium text-slate-500">
-                  {formatCurrency(data.topCategory.amount)}
+                  {formatCurrency(data.topCategory.amount, currency)}
                 </span>
               )}
             </div>
@@ -175,7 +176,7 @@ export default function InsightsPage() {
               Your daily spending over the last week
             </p>
           </div>
-          <DailyTrendChart data={data.dailyTrend} />
+          <DailyTrendChart data={data.dailyTrend} currency={currency} />
         </div>
 
         {/* Category Breakdown */}
@@ -184,7 +185,7 @@ export default function InsightsPage() {
             <h3 className="text-lg font-bold text-slate-800">Where it went</h3>
             <p className="text-sm text-slate-500">Spending by category</p>
           </div>
-          <CategoryPieChart data={data.categoryBreakdown} />
+          <CategoryPieChart data={data.categoryBreakdown} currency={currency} />
 
           {/* Legend */}
           <div className="mt-6 space-y-3">
@@ -205,7 +206,7 @@ export default function InsightsPage() {
                   </span>
                 </div>
                 <span className="font-medium text-slate-900">
-                  {formatCurrency(item.amount)}
+                  {formatCurrency(item.amount, currency)}
                 </span>
               </div>
             ))}

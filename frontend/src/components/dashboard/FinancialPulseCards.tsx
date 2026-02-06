@@ -10,6 +10,7 @@ import {
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
+import { CURRENCIES } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 // Duplicate imports removed
 
@@ -91,6 +92,8 @@ function PulseCardSkeleton() {
 export function FinancialPulseCards() {
   const { profile, isLoading, updateIncome } = useFinancial();
   const [showEditIncome, setShowEditIncome] = useState(false);
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
 
   if (isLoading) {
     return (
@@ -161,7 +164,7 @@ export function FinancialPulseCards() {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <PulseCard
         title="Monthly Income"
-        value={monthlyIncome > 0 ? formatCurrency(monthlyIncome) : "Not set"}
+        value={monthlyIncome > 0 ? formatCurrency(monthlyIncome, currency) : "Not set"}
         subtitle="Total expected inflow"
         icon={<Wallet className="w-5 h-5 text-emerald-600" />}
         color="text-emerald-600"
@@ -171,10 +174,10 @@ export function FinancialPulseCards() {
 
       <PulseCard
         title="Safe to Spend"
-        value={safeToSpend > 0 ? `${formatCurrency(safeToSpend)}/day` : "—"}
+        value={safeToSpend > 0 ? `${formatCurrency(safeToSpend, currency)}/day` : "—"}
         subtitle={
           burnRate > 0
-            ? `Avg. spending: ${formatCurrency(burnRate)}/day (${burnRate <= safeToSpend ? "On track" : "High"})`
+            ? `Avg. spending: ${formatCurrency(burnRate, currency)}/day (${burnRate <= safeToSpend ? "On track" : "High"})`
             : `${daysRemaining} days left this month`
         }
         icon={<ShieldCheck className="w-5 h-5 text-blue-600" />}
@@ -194,7 +197,7 @@ export function FinancialPulseCards() {
 
       <PulseCard
         title="Total Savings"
-        value={formatCurrency(totalSaved)}
+        value={formatCurrency(totalSaved, currency)}
         subtitle={`${profile.goals.length} active goals`}
         icon={<TrendingDown className="w-5 h-5 text-purple-600" />}
         color="text-purple-600"
@@ -207,6 +210,7 @@ export function FinancialPulseCards() {
         {showEditIncome && (
           <EditIncomeModal
             currentAmount={monthlyIncome}
+            currencySymbol={currencySymbol}
             onClose={() => setShowEditIncome(false)}
             onSave={(amount) => {
               updateIncome({
@@ -226,10 +230,12 @@ export function FinancialPulseCards() {
 
 function EditIncomeModal({
   currentAmount,
+  currencySymbol,
   onClose,
   onSave,
 }: {
   currentAmount: number;
+  currencySymbol: string;
   onClose: () => void;
   onSave: (amount: number) => void;
 }) {
@@ -270,7 +276,7 @@ function EditIncomeModal({
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-slate-400 text-sm">
-                  ₦
+                  {currencySymbol}
                 </span>
                 <input
                   type="text"

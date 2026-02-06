@@ -26,7 +26,8 @@ export function GoalCard({
   color = "bg-primary",
   showSaveButton = true,
 }: GoalCardProps) {
-  const { updateGoal } = useFinancial();
+  const { updateGoal, profile } = useFinancial();
+  const currency = profile.currency;
   const [showQuickSave, setShowQuickSave] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -65,8 +66,8 @@ export function GoalCard({
       </div>
 
       <div className="mb-2 flex justify-between text-sm font-medium">
-        <span className="text-slate-700">{formatCurrency(current)}</span>
-        <span className="text-gray-400">of {formatCurrency(target)}</span>
+        <span className="text-slate-700">{formatCurrency(current, currency)}</span>
+        <span className="text-gray-400">of {formatCurrency(target, currency)}</span>
       </div>
 
       <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
@@ -105,8 +106,7 @@ export function GoalCard({
                     disabled={isSaving}
                     className="px-2 py-1 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 rounded-lg transition-colors disabled:opacity-50"
                   >
-                    +
-                    {formatCurrency(amount).replace(".00", "").replace("₦", "")}
+                    +{formatCurrency(amount, currency, true).replace(/[^0-9km]/gi, "")}
                   </button>
                 ))}
                 <button

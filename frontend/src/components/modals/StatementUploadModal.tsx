@@ -11,6 +11,7 @@ import {
   CATEGORY_META,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
+import { useFinancial } from "@/contexts/FinancialContext";
 
 interface StatementUploadModalProps {
   isOpen: boolean;
@@ -25,6 +26,8 @@ export function StatementUploadModal({
   onClose,
   onComplete,
 }: StatementUploadModalProps) {
+  const { profile } = useFinancial();
+  const currency = profile.currency;
   const [step, setStep] = useState<UploadStep>("upload");
   const [transactions, setTransactions] = useState<UploadedTransaction[]>([]);
   const [summary, setSummary] = useState<ReturnType<
@@ -233,13 +236,13 @@ export function StatementUploadModal({
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-red-600">
-                      {formatCurrency(summary.totalDebits)}
+                      {formatCurrency(summary.totalDebits, currency)}
                     </p>
                     <p className="text-xs text-slate-500">Spent</p>
                   </div>
                   <div>
                     <p className="text-2xl font-bold text-green-600">
-                      {formatCurrency(summary.totalCredits)}
+                      {formatCurrency(summary.totalCredits, currency)}
                     </p>
                     <p className="text-xs text-slate-500">Received</p>
                   </div>
@@ -299,7 +302,7 @@ export function StatementUploadModal({
                           }`}
                         >
                           {t.type === "credit" ? "+" : "-"}
-                          {formatCurrency(t.amount)}
+                          {formatCurrency(t.amount, currency)}
                         </td>
                       </tr>
                     ))}

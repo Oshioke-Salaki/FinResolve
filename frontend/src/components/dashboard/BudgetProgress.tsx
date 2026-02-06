@@ -12,8 +12,8 @@ import {
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
-import type { Budget, SpendingCategory } from "@/lib/types";
-import { CATEGORY_META } from "@/lib/types";
+import type { Budget, SpendingCategory, CurrencyCode } from "@/lib/types";
+import { CATEGORY_META, CURRENCIES } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface BudgetProgressProps {
@@ -23,6 +23,8 @@ interface BudgetProgressProps {
 export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
   const { profile, addBudget, deleteBudget } = useFinancial();
   const [showAddForm, setShowAddForm] = useState(false);
+  const currency = profile.currency;
+  const currencySymbol = CURRENCIES[currency]?.symbol || "$";
 
   const budgets = profile.budgets || [];
   const spendingSummary = profile.spendingSummary || [];
@@ -75,13 +77,14 @@ export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
           <BudgetCard
             key={budget.id}
             budget={budget}
+            currency={currency}
             onDelete={deleteBudget}
             hideDelete={isPreview}
           />
         ))}
 
         {unbudgetedSpending > 0 && (
-          <UnbudgetedCard amount={unbudgetedSpending} />
+          <UnbudgetedCard amount={unbudgetedSpending} currency={currency} />
         )}
 
         {displayBudgets.length === 0 && unbudgetedSpending === 0 && (
@@ -102,6 +105,7 @@ export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
           <AddBudgetModal
             onClose={() => setShowAddForm(false)}
             onAdd={addBudget}
+            currencySymbol={currencySymbol}
           />
         )}
       </AnimatePresence>
@@ -111,10 +115,12 @@ export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
 
 function BudgetCard({
   budget,
+  currency,
   onDelete,
   hideDelete = false,
 }: {
   budget: Budget;
+  currency: CurrencyCode;
   onDelete: (id: string) => void;
   hideDelete?: boolean;
 }) {
@@ -176,14 +182,14 @@ function BudgetCard({
       </div>
 
       <div className="flex justify-between text-xs text-slate-500">
-        <span>{formatCurrency(budget.spent)} spent</span>
-        <span>of {formatCurrency(budget.limit)}</span>
+        <span>{formatCurrency(budget.spent, currency)} spent</span>
+        <span>of {formatCurrency(budget.limit, currency)}</span>
       </div>
     </div>
   );
 }
 
-function UnbudgetedCard({ amount }: { amount: number }) {
+function UnbudgetedCard({ amount, currency }: { amount: number; currency: CurrencyCode }) {
   return (
     <div className="p-4 rounded-xl bg-slate-50/50 border border-dashed border-slate-200 shadow-sm relative group transition-colors">
       <div className="flex items-center justify-between mb-3">
@@ -200,7 +206,7 @@ function UnbudgetedCard({ amount }: { amount: number }) {
 
       <div className="flex items-baseline gap-1.5">
         <span className="text-xl font-bold text-slate-800">
-          {formatCurrency(amount)}
+          {formatCurrency(amount, currency)}
         </span>
         <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
           Spent
@@ -217,9 +223,11 @@ function UnbudgetedCard({ amount }: { amount: number }) {
 function AddBudgetModal({
   onClose,
   onAdd,
+  currencySymbol,
 }: {
   onClose: () => void;
   onAdd: (b: Budget) => void;
+  currencySymbol: string;
 }) {
   const [category, setCategory] = useState<SpendingCategory>("food");
   const [limit, setLimit] = useState("");
@@ -276,7 +284,7 @@ function AddBudgetModal({
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-slate-400 text-sm">
-                  ₦
+                  {currencySymbol}
                 </span>
                 <input
                   type="text"

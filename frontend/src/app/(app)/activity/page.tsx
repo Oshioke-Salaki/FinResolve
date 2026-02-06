@@ -17,6 +17,7 @@ import {
 
 export default function ActivityPage() {
   const { profile, isLoading } = useFinancial();
+  const currency = profile.currency;
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<
     "all" | "expense" | "income" | "transfer"
@@ -256,7 +257,7 @@ export default function ActivityPage() {
                           }`}
                         >
                           {isIncome ? "+" : isTransfer ? "→" : "-"}{" "}
-                          {formatCurrency(t.amount)}
+                          {formatCurrency(t.amount, currency)}
                         </span>
                       </td>
                     </tr>

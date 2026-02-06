@@ -60,9 +60,10 @@ FinResolve is a **chat-first AI financial health app** that makes managing money
 ### Core Financial Management
 
 **Smart Income & Expense Tracking**
-- Log transactions in plain English: *"Paid ₦15,000 for electricity"*
+- Log transactions in plain English: *"Paid $150 for electricity"*
 - AI extracts amount, category, and context automatically
-- Support for Nigerian currency notation (₦, NGN, "5k", "2.5m")
+- **Multi-currency support**: USD, EUR, GBP, NGN, INR, KES, ZAR, CAD, AUD
+- Intelligent shorthand parsing ("5k", "2.5m") adapts to your selected currency
 - Confidence levels for estimated vs. exact amounts
 
 **Multi-Account Management**
@@ -91,10 +92,11 @@ FinResolve is a **chat-first AI financial health app** that makes managing money
 
 **Natural Language Processing**
 ```
-"I spent about 5k on lunch" → Logs ₦5,000 to Food (medium confidence)
-"Exactly ₦25,000 for my phone bill" → Logs ₦25,000 to Utilities (high confidence)
-"2.5m for the car deposit" → Logs ₦2,500,000 to Transport (high confidence)
+"I spent about 5k on lunch" → Logs $5,000 / ₦5,000 / £5,000 to Food (medium confidence)
+"Exactly $250 for my phone bill" → Logs $250 to Utilities (high confidence)
+"2.5m for the car deposit" → Logs in your currency to Transport (high confidence)
 ```
+*Currency formatting automatically adapts to your selected currency during onboarding.*
 
 **Proactive AI Nudges**
 - *"You've used 80% of your food budget with 10 days left"*
@@ -164,9 +166,22 @@ Each score comes with **AI-generated recommendations** to improve your financial
 A **4-step wizard** gets you up and running in under 2 minutes:
 
 1. **Welcome** — Tell us your name
-2. **Income** — Set your monthly income
+2. **Income & Currency** — Select your currency and set your monthly income
 3. **Expenses** — Select your typical spending categories
 4. **Goals** — Choose from common financial goals
+
+**Supported Currencies:**
+| Flag | Code | Currency | Symbol |
+|------|------|----------|--------|
+| 🇺🇸 | USD | US Dollar | $ |
+| 🇪🇺 | EUR | Euro | € |
+| 🇬🇧 | GBP | British Pound | £ |
+| 🇳🇬 | NGN | Nigerian Naira | ₦ |
+| 🇮🇳 | INR | Indian Rupee | ₹ |
+| 🇰🇪 | KES | Kenyan Shilling | KSh |
+| 🇿🇦 | ZAR | South African Rand | R |
+| 🇨🇦 | CAD | Canadian Dollar | C$ |
+| 🇦🇺 | AUD | Australian Dollar | A$ |
 
 No overwhelming forms. No 50-field profiles. Just what we need to start helping you.
 
@@ -282,7 +297,8 @@ frontend/
 profiles           -- User financial profile
 ├── id             -- UUID (FK to auth.users)
 ├── name           -- Display name
-├── monthly_income -- Income in Naira
+├── currency       -- User's preferred currency (USD, EUR, GBP, NGN, etc.)
+├── monthly_income -- Income in user's selected currency
 ├── has_completed_onboarding
 └── data_completeness_score
 
@@ -531,7 +547,7 @@ We welcome contributions! Here's how:
 - [ ] Push notifications for budget alerts
 
 ### Medium Term
-- [ ] Multi-currency support
+- [x] **Multi-currency support** (USD, EUR, GBP, NGN, INR, KES, ZAR, CAD, AUD)
 - [ ] Plaid integration for automatic bank sync
 - [ ] Shared budgets (couples/families)
 - [ ] Receipt scanning with OCR

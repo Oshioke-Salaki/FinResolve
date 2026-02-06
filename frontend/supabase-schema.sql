@@ -6,6 +6,7 @@ CREATE TABLE profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT,
+  currency TEXT DEFAULT 'USD' CHECK (currency IN ('USD', 'EUR', 'GBP', 'NGN', 'INR', 'KES', 'ZAR', 'CAD', 'AUD')),
   income_amount DECIMAL(15, 2),
   income_confidence TEXT CHECK (income_confidence IN ('high', 'medium', 'low')),
   income_is_estimate BOOLEAN DEFAULT false,

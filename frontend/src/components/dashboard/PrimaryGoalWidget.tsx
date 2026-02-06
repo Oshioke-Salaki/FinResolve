@@ -6,12 +6,14 @@ import { Target, Plus, Check } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { formatCurrency } from "@/lib/parseInput";
 import { cn } from "@/lib/utils";
+import { CURRENCIES, type CurrencyCode, type Account } from "@/lib/types";
 
 interface SaveNowModalProps {
   isOpen: boolean;
   onClose: () => void;
   goalName: string;
-  accounts: any[];
+  accounts: Account[];
+  currency: CurrencyCode;
   onSave: (amount: number, accountId: string) => void;
 }
 
@@ -20,6 +22,7 @@ function SaveNowModal({
   onClose,
   goalName,
   accounts,
+  currency,
   onSave,
 }: SaveNowModalProps) {
   const [amount, setAmount] = useState("");
@@ -71,7 +74,7 @@ function SaveNowModal({
             >
               {accounts.map((acc) => (
                 <option key={acc.id} value={acc.id}>
-                  {acc.name} ({formatCurrency(acc.balance)})
+                  {acc.name} ({formatCurrency(acc.balance, currency)})
                 </option>
               ))}
             </select>
@@ -110,7 +113,7 @@ function SaveNowModal({
               onClick={() => setAmount(quickAmount.toLocaleString())}
               className="flex-1 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
             >
-              {formatCurrency(quickAmount).replace(".00", "")}
+              {formatCurrency(quickAmount, currency, true)}
             </button>
           ))}
         </div>
@@ -158,6 +161,7 @@ export function PrimaryGoalWidget() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showAddGoalModal, setShowAddGoalModal] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const currency = profile.currency;
 
   const handleAddGoal = (data: {
     title: string;
@@ -286,17 +290,17 @@ export function PrimaryGoalWidget() {
           {primaryGoal.name}
         </h4>
         <p className="text-sm text-slate-500 mb-4">
-          {formatCurrency(remaining)} to go
+          {formatCurrency(remaining, currency)} to go
           {primaryGoal.deadline && ` • Due ${primaryGoal.deadline}`}
         </p>
 
         <div className="mb-4">
           <div className="flex justify-between text-sm mb-1">
             <span className="font-medium text-slate-700">
-              {formatCurrency(primaryGoal.current)}
+              {formatCurrency(primaryGoal.current, currency)}
             </span>
             <span className="text-slate-400">
-              {formatCurrency(primaryGoal.target)}
+              {formatCurrency(primaryGoal.target, currency)}
             </span>
           </div>
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -343,6 +347,7 @@ export function PrimaryGoalWidget() {
         onClose={() => setShowSaveModal(false)}
         goalName={primaryGoal.name}
         accounts={profile.accounts}
+        currency={currency}
         onSave={handleSave}
       />
     </>

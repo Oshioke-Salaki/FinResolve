@@ -4,10 +4,17 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Plus } from "lucide-react";
 
+interface GoalFormData {
+  title: string;
+  targetAmount: string;
+  deadline: string;
+  color: string;
+}
+
 interface AddGoalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (goal: any) => void;
+  onAdd: (goal: GoalFormData) => void;
 }
 
 export function AddGoalModal({ isOpen, onClose, onAdd }: AddGoalModalProps) {
