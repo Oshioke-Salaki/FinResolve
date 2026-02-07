@@ -1,4 +1,4 @@
-import { opikClient } from "@/lib/opikClient";
+import { getOpikClient } from "@/lib/opikClient";
 import { type UserFinancialProfile } from "@/lib/types";
 
 export interface SpendingInsight {
@@ -12,6 +12,7 @@ export interface SpendingInsight {
 export async function generateWeeklyInsight(
   profile: UserFinancialProfile,
 ): Promise<SpendingInsight> {
+  const opikClient = getOpikClient();
   const trace = opikClient.trace({
     name: "weekly-insight",
     tags: ["coach", "rule-based"],
@@ -77,6 +78,7 @@ export async function generateWeeklyInsight(
     });
     trace.end();
 
+    // getOpikClient() already exists in scope from the start of the function
     await opikClient.flush();
 
     return insight;

@@ -1,8 +1,8 @@
 "use server";
 
-import { openai, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
+import { getOpenAIClient, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
 import { type SpendingCategory } from "@/lib/types";
-import { opikClient } from "@/lib/opikClient";
+import { getOpikClient } from "@/lib/opikClient";
 
 interface RawTransaction {
   id: string;
@@ -78,6 +78,7 @@ export async function categorizeTransactionsAI(
       ${batch.map((t) => `${t.id} | ${t.description} | ${t.amount}`).join("\n")}
       `;
 
+      const openai = getOpenAIClient();
       const completion = await openai.chat.completions.create({
         model: OPENAI_MODEL_NAME,
         messages: [{ role: "system", content: prompt }],
@@ -97,6 +98,7 @@ export async function categorizeTransactionsAI(
       results.push(...batchResults);
 
       // Opik Tracing for this batch
+      const opikClient = getOpikClient();
       const trace = opikClient.trace({
         name: "ai-categorization",
         input: { batchSize: batch.length, sample: batch[0].description },

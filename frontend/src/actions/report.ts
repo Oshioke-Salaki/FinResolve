@@ -1,6 +1,6 @@
 "use server";
 
-import { openai, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
+import { getOpenAIClient, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
 
 interface ReportInsightParams {
   monthName: string;
@@ -32,6 +32,7 @@ export async function generateReportInsights(
   `;
 
   try {
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: OPENAI_MODEL_NAME,
       messages: [{ role: "system", content: prompt }],
