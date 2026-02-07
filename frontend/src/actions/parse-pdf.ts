@@ -46,10 +46,15 @@ export async function parsePDFStatement(
     // @ts-ignore
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-    // Disable worker for serverless environment stability
-    (pdfjs.GlobalWorkerOptions as any).workerSrc = "";
+    // In production (Vercel), we point to a CDN for the worker to avoid bundling path issues.
+    // Even with disableWorker: true, PDF.js often wants a valid workerSrc to initialize.
+    const version = pdfjs.version || "5.4.296";
+    (pdfjs.GlobalWorkerOptions as any).workerSrc =
+      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
 
-    console.log("[parsePDFStatement] Loading document...");
+    console.log(
+      `[parsePDFStatement] Loading document (Version: ${version})...`,
+    );
     const loadingTask = pdfjs.getDocument({
       data,
       disableWorker: true,
