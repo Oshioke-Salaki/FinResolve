@@ -16,6 +16,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinancial } from "@/contexts/FinancialContext";
+import Image from "next/image";
 
 const navItems = [
   { name: "Home", href: "/dashboard", icon: Home },
@@ -87,10 +88,13 @@ export function Sidebar() {
       >
         <div className="flex flex-col h-full p-6">
           {/* Logo */}
-          <Link href="/" className="mb-10 flex items-center gap-2 px-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-              <span className="text-white font-bold text-lg">Fin</span>
-            </div>
+          <Link href="/" className="mb-10 flex items-center">
+            <Image
+              src="/finresolvelogo.png"
+              alt="FinResolve"
+              width={60}
+              height={60}
+            />
             <span className="text-xl font-bold tracking-tight text-foreground">
               FinResolve
             </span>

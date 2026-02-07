@@ -20,6 +20,7 @@ import {
   Upload,
   Star,
 } from "lucide-react";
+import Image from "next/image";
 
 /* ─── smooth‑scroll anchor ─── */
 function A({
@@ -130,14 +131,15 @@ export default function LandingPage() {
         className={`fixed inset-x-0 top-0 z-50 transition-all duration-500 ${scrolled ? "bg-white/80 backdrop-blur-xl shadow-[0_1px_0_0_rgba(0,0,0,.04)]" : ""}`}
       >
         <div className="max-w-6xl mx-auto flex items-center justify-between h-14 px-6">
-          <Link href="/" className="flex items-center gap-2 group">
-            <motion.div
-              whileHover={{ rotate: [0, -8, 8, 0] }}
-              transition={{ duration: 0.5 }}
-              className="size-7 rounded-lg bg-indigo-600 flex items-center justify-center"
-            >
-              <span className="text-white text-xs font-bold">F</span>
-            </motion.div>
+          <Link href="/" className="flex items-center">
+       
+              <Image
+                src="/finresolvelogo.png"
+                alt="FinResolve"
+                width={65}
+                height={65}
+                className="-mr-1"
+              />
             <span className="font-semibold text-[15px] tracking-tight">
               FinResolve
             </span>
@@ -194,7 +196,7 @@ export default function LandingPage() {
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
           {/* Badge */}
-          <motion.div
+          {/* <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
@@ -204,7 +206,7 @@ export default function LandingPage() {
               <Sparkles className="size-4 text-amber-500" />
               <span>The future of personal finance is here</span>
             </span>
-          </motion.div>
+          </motion.div> */}
 
           {/* Headline */}
           <motion.h1
@@ -227,8 +229,8 @@ export default function LandingPage() {
             className="text-lg sm:text-xl text-slate-600 mb-10 max-w-2xl mx-auto leading-relaxed"
           >
             Stop guessing where your money goes. FinResolve analyzes your
-            spending, automates your savings, and helps you build
-            wealth—effortlessly.
+            spending, automates your savings, and helps you build wealth
+            effortlessly.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -477,7 +479,7 @@ export default function LandingPage() {
                     Conversational AI Coach
                   </h3>
                   <p className="text-slate-500 leading-relaxed">
-                    Don&apos;t just look at charts—talk to your data. Ask
+                    Don&apos;t just look at charts talk to your data. Ask
                     &quot;How much did I spend on Uber?&quot; or &quot;Can I
                     afford a vacation?&quot; and get instant answers.
                   </p>
@@ -828,10 +830,13 @@ export default function LandingPage() {
       <Reveal>
         <footer className="border-t border-slate-100 py-8 px-6">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-1.5">
-              <div className="size-6 rounded-md bg-indigo-600 flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">F</span>
-              </div>
+            <div className="flex items-center">
+              <Image
+                src="/finresolvelogo.png"
+                alt="FinResolve"
+                width={65}
+                height={65}
+              />
               <span className="text-[13px] font-semibold text-slate-900">
                 FinResolve
               </span>
