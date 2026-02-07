@@ -7,12 +7,22 @@ ALTER TABLE spending_entries ADD CONSTRAINT spending_entries_source_check
 
 ALTER TABLE spending_entries DROP CONSTRAINT spending_entries_category_check;
 ALTER TABLE spending_entries ADD CONSTRAINT spending_entries_category_check 
-  CHECK (category IN ('food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'family', 'debt', 'salary', 'business', 'gift', 'other'));
+  CHECK (category IN (
+    'food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 
+    'shopping', 'health', 'education', 'savings', 'family', 'debt', 
+    'personal_care', 'investment', 'tax', 'salary', 'business', 'gift', 
+    'travel', 'insurance', 'subscriptions', 'charity', 'other'
+  ));
 
 -- 2. Update spending_summaries table
 ALTER TABLE spending_summaries DROP CONSTRAINT spending_summaries_category_check;
 ALTER TABLE spending_summaries ADD CONSTRAINT spending_summaries_category_check 
-  CHECK (category IN ('food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 'shopping', 'health', 'education', 'savings', 'family', 'debt', 'salary', 'business', 'gift', 'other'));
+  CHECK (category IN (
+    'food', 'transport', 'utilities', 'data_airtime', 'housing', 'entertainment', 
+    'shopping', 'health', 'education', 'savings', 'family', 'debt', 
+    'personal_care', 'investment', 'tax', 'salary', 'business', 'gift', 
+    'travel', 'insurance', 'subscriptions', 'charity', 'other'
+  ));
 
 -- 3. Add type column to spending_entries
 ALTER TABLE spending_entries ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'expense' CHECK (type IN ('expense', 'income', 'transfer'));
