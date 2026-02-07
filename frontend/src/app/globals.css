@@ -2,17 +2,17 @@
 
 :root {
   /* Base - Clean White/cool gray */
-  --background: 210 40% 98%; 
-  --foreground: 222 47% 11%; 
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
 
   /* Primary - Trustworthy Indigo */
-  --primary: 226 70% 55%; 
+  --primary: 226 70% 55%;
   --primary-foreground: 0 0% 100%;
 
   /* Secondary - Calming Green */
-  --secondary: 150 60% 45%; 
+  --secondary: 150 60% 45%;
   --secondary-foreground: 0 0% 100%;
-  
+
   /* Accent - Soft Coral/Orange for warmth */
   --accent: 20 80% 65%;
   --accent-foreground: 0 0% 100%;
@@ -20,48 +20,48 @@
   /* UI Elements */
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
-  
+
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  
+
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  
+
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  
+
   --radius: 1rem; /* High radius for friendly feel */
 }
 
 @theme inline {
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
-  
+
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
-  
+
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
-  
+
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
 
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
-  
+
   --color-popover: hsl(var(--popover));
   --color-popover-foreground: hsl(var(--popover-foreground));
-  
+
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
-  
+
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
-  
+
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 4px);
   --radius-sm: calc(var(--radius) - 8px);
-  
+
   --font-sans: var(--font-inter);
 }
 
@@ -80,25 +80,40 @@ body {
 /* ── Landing Page ── */
 
 .text-gradient {
-  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 @keyframes float-gentle {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes shimmer-line {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
 }
 
 @keyframes scale-in {
-  0% { transform: scale(0.95); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .animate-float-gentle {
@@ -107,4 +122,31 @@ body {
 
 .animate-float-gentle-delayed {
   animation: float-gentle 4s ease-in-out 1s infinite;
+}
+
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
 }
