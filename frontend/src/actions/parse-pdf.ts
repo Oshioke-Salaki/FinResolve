@@ -31,50 +31,58 @@ export async function parsePDFStatement(
 ): Promise<PDFParseResult> {
   // 1. Initial Logging for Deployment Debugging
   console.log("[parsePDFStatement] Starting PDF parse server action...");
-  // ... rest of the initial logic ...
 
   const file = formData.get("file") as File;
   if (!file) return { success: false, error: "No file uploaded" };
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const data = new Uint8Array(arrayBuffer);
 
     // 2. Dynamic Library Load (Prevents crashing other server actions)
-    console.log("[parsePDFStatement] Dynamically loading pdf-parse...");
-    // @ts-ignore
-    const { PDFParse } = await import("pdf-parse");
+    console.log("[parsePDFStatement] Dynamically loading pdfjs-dist...");
 
-    if (!PDFParse) {
-      throw new Error("PDFParse library failed to load dynamically.");
+    // We use the legacy build for better Node compatibility on Vercel
+    // @ts-ignore
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+    // Disable worker for serverless environment stability
+    (pdfjs.GlobalWorkerOptions as any).workerSrc = "";
+
+    console.log("[parsePDFStatement] Loading document...");
+    const loadingTask = pdfjs.getDocument({
+      data,
+      disableWorker: true,
+      verbosity: 0,
+    } as any);
+
+    const pdf = await loadingTask.promise;
+    console.log(`[parsePDFStatement] PDF loaded: ${pdf.numPages} pages`);
+
+    let fullText = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        // @ts-ignore
+        .map((item: any) => item.str)
+        .join(" ");
+      fullText += pageText + "\n";
     }
 
-    const parser = new PDFParse({ data: buffer });
-
-    console.log("[parsePDFStatement] Extracting text...");
-    const data = await parser.getText();
-
-    console.log("[parsePDFStatement] Destroying parser...");
-    await parser.destroy();
-
-    const textContent = data.text;
-    if (!textContent || textContent.trim().length === 0) {
+    if (!fullText || fullText.trim().length === 0) {
       console.warn("[parsePDFStatement] No text extracted from PDF");
       return {
         success: false,
         error:
-          "No text could be extracted from this PDF. It might be an image-only scan, encrypted, or corrupted.",
+          "No text could be extracted from this PDF. It might be an image-only scan.",
       };
     }
 
-    console.log(
-      `[parsePDFStatement] Extracted ${textContent.length} characters of text`,
-    );
+    console.log(`[parsePDFStatement] Extracted ${fullText.length} characters`);
 
     // 3. AI Extraction
-    // We'll process the first 15000 chars of text to avoid context limits.
-    const truncatedText = textContent.slice(0, 15000);
-
+    const truncatedText = fullText.slice(0, 15000);
     const prompt = `
     You are a financial data parser. Extract bank transactions from the following raw PDF text.
     
@@ -89,22 +97,16 @@ export async function parsePDFStatement(
     Instructions:
     1. Identify the transaction table or list.
     2. Extract Date, Description, Amount, and Type (Credit/Debit or Income/Expense).
-    3. IMPORTANT FOR DATES: 
-       - Bank statements often omit the year on individual lines. Look at the entire text to find the statement period or year.
-       - Ensure the "date" field in your output corresponds to the ACTUAL transaction date from the statement.
-       - If the month is late in the year (e.g., December) and the current date is early (e.g., February), be careful to use the correct previous year if applicable.
-       - Output dates ALWAYS in YYYY-MM-DD format.
-    4. Ignore header info (address, account summary) and footer info.
-    5. For Amount: Ensure it is a positive number.
-    6. For Type: Determine if money left the account (debit) or entered (credit).
-    7. Return a JSON object with a key "transactions" containing an array of objects.
+    3. Output dates ALWAYS in YYYY-MM-DD format.
+    4. Ignore headers and footers.
+    5. Return a JSON object with a key "transactions" containing an array of objects.
     
     Output Format (JSON):
     {
       "transactions": [
         {
           "date": "YYYY-MM-DD",
-          "description": "string (raw description)",
+          "description": "string",
           "amount": 123.45,
           "type": "credit" | "debit" 
         }
@@ -122,60 +124,36 @@ export async function parsePDFStatement(
     });
 
     const responseContent = completion.choices[0].message.content;
-    if (!responseContent) {
-      console.error("[parsePDFStatement] Empty response from OpenAI");
-      throw new Error("No response from AI parser");
-    }
+    if (!responseContent) throw new Error("No response from AI parser");
 
     const parsed = JSON.parse(responseContent);
     const rawTransactions = parsed.transactions || [];
 
-    // Map to UploadedTransaction format
-    const transactions = rawTransactions.map(
-      (t: {
-        date: string;
-        description: string;
-        amount: number;
-        type: string;
-      }) => ({
-        id: crypto.randomUUID(),
-        date: t.date,
-        description: t.description,
-        amount: Number(t.amount),
-        type: t.type,
-        confirmed: false,
-      }),
-    );
+    const transactions = rawTransactions.map((t: any) => ({
+      id: crypto.randomUUID(),
+      date: t.date,
+      description: t.description,
+      amount: Number(t.amount),
+      type: t.type,
+      confirmed: false,
+    }));
 
     console.log(
       `[parsePDFStatement] Successfully parsed ${transactions.length} transactions`,
     );
     return { success: true, transactions };
   } catch (error: any) {
-    // Log the full error to server console for debugging
     console.error("[parsePDFStatement] CRITICAL ERROR DETAILS:", error);
-
-    // Check for specific common deployment errors to provide better user feedback
     let errorMessage = error instanceof Error ? error.message : String(error);
 
-    if (errorMessage.includes("canvas")) {
+    if (errorMessage.includes("worker")) {
       errorMessage =
-        "PDF library dependency error (canvas binary missing in production). Try uploading a CSV or a different PDF format.";
-    } else if (
-      errorMessage.includes("401") ||
-      errorMessage.includes("API key")
-    ) {
-      errorMessage =
-        "Server configuration error: OpenAI API key is missing or invalid in production.";
-    } else if (errorMessage.includes("timeout")) {
-      errorMessage = "Extraction took too long. Try a smaller PDF file.";
+        "PDF Worker Error: The serverless environment blocked the PDF engine. We are working on a fix.";
     }
 
     return {
       success: false,
-      error: errorMessage.startsWith("PDF Parsing error")
-        ? errorMessage
-        : `PDF Parsing error: ${errorMessage}`,
+      error: `PDF Parsing error: ${errorMessage}`,
     };
   }
 }
