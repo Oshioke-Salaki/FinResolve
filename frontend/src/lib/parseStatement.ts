@@ -17,7 +17,39 @@ export async function parseCSV(file: File): Promise<UploadedTransaction[]> {
   }
 
   // Detect header row and column positions
-  const columns = parseCSVLine(lines[0]);
+  let headerRowIndex = -1;
+  let columns: string[] = [];
+
+  // Scan first 20 lines for a header row
+  for (let i = 0; i < Math.min(lines.length, 20); i++) {
+    const cols = parseCSVLine(lines[i]);
+    const dIdx = findColumnIndex(cols, [
+      "date",
+      "transaction date",
+      "trans date",
+      "posted",
+    ]);
+    const descIdx = findColumnIndex(cols, [
+      "description",
+      "details",
+      "narrative",
+      "memo",
+      "particulars",
+      "remarks",
+    ]);
+
+    if (dIdx !== -1 && descIdx !== -1) {
+      headerRowIndex = i;
+      columns = cols;
+      break;
+    }
+  }
+
+  if (headerRowIndex === -1) {
+    throw new Error(
+      "Could not find a valid header row. Please ensure your CSV has columns for Date and Description.",
+    );
+  }
 
   // Find column indices
   const dateIdx = findColumnIndex(columns, [
@@ -32,18 +64,25 @@ export async function parseCSV(file: File): Promise<UploadedTransaction[]> {
     "narrative",
     "memo",
     "particulars",
+    "remarks",
   ]);
   const amountIdx = findColumnIndex(columns, ["amount", "value", "sum"]);
-  const debitIdx = findColumnIndex(columns, ["debit", "withdrawal", "dr"]);
-  const creditIdx = findColumnIndex(columns, ["credit", "deposit", "cr"]);
-
-  if (dateIdx === -1 || descIdx === -1) {
-    throw new Error("Could not detect required columns (date, description)");
-  }
+  const debitIdx = findColumnIndex(columns, [
+    "debit",
+    "withdrawal",
+    "dr",
+    "paid out",
+  ]);
+  const creditIdx = findColumnIndex(columns, [
+    "credit",
+    "deposit",
+    "cr",
+    "paid in",
+  ]);
 
   const transactions: UploadedTransaction[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
+  for (let i = headerRowIndex + 1; i < lines.length; i++) {
     const cols = parseCSVLine(lines[i]);
     if (cols.length < 3) continue;
 
@@ -321,9 +360,12 @@ export function calculateTransactionSummary(
   const minDate = dates.length ? new Date(Math.min(...dates)) : new Date();
   const maxDate = dates.length ? new Date(Math.max(...dates)) : new Date();
 
+  const netAmount = totalCredits - totalDebits;
+
   return {
     totalDebits,
     totalCredits,
+    netAmount,
     transactionCount: transactions.length,
     dateRange: {
       start: minDate.toISOString().split("T")[0],

@@ -30,17 +30,55 @@ export function BudgetProgress({ isPreview = false }: BudgetProgressProps) {
   const spendingSummary = profile.spendingSummary || [];
 
   // Calculate unbudgeted spending
+  // Calculate unbudgeted spending
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Helper to get spent amount for a category this month
+  const getSpentForCategory = (category: SpendingCategory) => {
+    return profile.monthlySpending
+      .filter((t) => {
+        if (!t.date && !t.createdAt) return false;
+        const d = new Date(t.date || t.createdAt || "");
+        return (
+          d.getMonth() === currentMonth &&
+          d.getFullYear() === currentYear &&
+          t.type === "expense" &&
+          t.category === category
+        );
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+  };
+
+  // Map budgets with dynamic spent value
+  const budgetsWithSpent = budgets.map((b) => ({
+    ...b,
+    spent: getSpentForCategory(b.category),
+  }));
+
   const budgetedCategories = new Set(budgets.map((b) => b.category));
-  const unbudgetedSpending = spendingSummary
-    .filter((s) => !budgetedCategories.has(s.category))
-    .reduce((sum, s) => sum + s.total, 0);
+
+  // Calculate unbudgeted spending (in categories NOT in budgets)
+  const unbudgetedSpending = profile.monthlySpending
+    .filter((t) => {
+      if (!t.date && !t.createdAt) return false;
+      const d = new Date(t.date || t.createdAt || "");
+      return (
+        d.getMonth() === currentMonth &&
+        d.getFullYear() === currentYear &&
+        t.type === "expense" &&
+        !budgetedCategories.has(t.category)
+      );
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
 
   // If preview, only show top 3 + misc
   const displayBudgets = isPreview
-    ? [...budgets]
+    ? [...budgetsWithSpent]
         .sort((a, b) => b.spent / b.limit - a.spent / a.limit)
         .slice(0, 3)
-    : budgets;
+    : budgetsWithSpent;
 
   return (
     <div className="space-y-4">
@@ -189,7 +227,13 @@ function BudgetCard({
   );
 }
 
-function UnbudgetedCard({ amount, currency }: { amount: number; currency: CurrencyCode }) {
+function UnbudgetedCard({
+  amount,
+  currency,
+}: {
+  amount: number;
+  currency: CurrencyCode;
+}) {
   return (
     <div className="p-4 rounded-xl bg-slate-50/50 border border-dashed border-slate-200 shadow-sm relative group transition-colors">
       <div className="flex items-center justify-between mb-3">

@@ -60,7 +60,7 @@ export function AccountCards() {
             <Wallet className="w-24 h-24 text-indigo-400" />
           </div>
           <p className="text-sm font-medium text-slate-400 mb-1">Net Worth</p>
-          <p className="text-3xl font-bold text-white tracking-tight">
+          <p className="text-xl font-bold text-white tracking-tight">
             {formatCurrency(netWorth, currency)}
           </p>
           <div className="mt-4 flex items-center gap-2 text-xs text-indigo-300 bg-indigo-500/10 w-fit px-2 py-1 rounded-md border border-indigo-500/20">
@@ -179,7 +179,7 @@ function AccountCard({
         <h3 className="text-sm font-medium text-slate-300 truncate pr-6">
           {account.name}
         </h3>
-        <p className="text-lg font-bold text-white mt-0.5">
+        <p className="text-base font-bold text-white mt-0.5">
           {formatCurrency(account.balance, currency)}
         </p>
         <p className="text-xs text-slate-500 mt-1">{getLabel(account.type)}</p>

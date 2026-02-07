@@ -327,19 +327,6 @@ function DashboardContent() {
 
   // ... other handlers ...
   const handleUploadComplete = (transactions: UploadedTransaction[]) => {
-    const spendingEntries: SpendingEntry[] = transactions
-      .filter((t) => t.type === "debit")
-      .map((t) => ({
-        id: t.id,
-        category: t.suggestedCategory || "other",
-        amount: t.amount,
-        confidence: "high" as const,
-        source: "upload" as const,
-        description: t.description,
-        date: t.date,
-      }));
-
-    mergeUploadedData(spendingEntries);
     setShowUploadModal(false);
 
     const msg: Message = {
@@ -411,7 +398,7 @@ function DashboardContent() {
             <FinancialPulseCards />
 
             {/* Budget & Recurring Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-6">
               <BudgetProgress isPreview />
               <RecurringBills isPreview />
             </div>

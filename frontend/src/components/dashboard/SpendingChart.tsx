@@ -55,18 +55,41 @@ export function SpendingChart() {
     return <ChartSkeleton />;
   }
 
-  // Transform profile.spendingSummary into chart data
-  const chartData = profile.spendingSummary
-    .filter((s) => s.total > 0)
-    .map((summary) => ({
-      name: CATEGORY_META[summary.category].label,
-      value: summary.total,
-      color: CATEGORY_COLORS[summary.category],
-      category: summary.category,
+  // 1. Filter for current month spending
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  const currentMonthSpending = profile.monthlySpending.filter((t) => {
+    if (!t.date && !t.createdAt) return false;
+    const d = new Date(t.date || t.createdAt || "");
+    return (
+      d.getMonth() === currentMonth &&
+      d.getFullYear() === currentYear &&
+      t.type === "expense" // Only expenses
+    );
+  });
+
+  // 2. Aggregate by category
+  const categoryTotals: Record<string, number> = {};
+  currentMonthSpending.forEach((t) => {
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+  });
+
+  // 3. Transform to chart data
+  const chartData = Object.entries(categoryTotals)
+    .map(([category, total]) => ({
+      name: CATEGORY_META[category as SpendingCategory].label,
+      value: total,
+      color: CATEGORY_COLORS[category as SpendingCategory],
+      category: category as SpendingCategory,
     }))
     .sort((a, b) => b.value - a.value);
 
   const totalSpending = chartData.reduce((sum, item) => sum + item.value, 0);
+
+  // Check for any historical data to give better zero-state message
+  const hasHistory = profile.monthlySpending.length > 0;
 
   if (chartData.length === 0) {
     return (
@@ -75,10 +98,15 @@ export function SpendingChart() {
           Spending This Month
         </h3>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-sm text-slate-400">No spending data yet</p>
-            <p className="text-xs text-slate-400 mt-1">
-              Tell me about your expenses or upload a statement
+          <div className="text-center px-4">
+            <p className="text-sm text-slate-400 font-medium">
+              No spending data for{" "}
+              {now.toLocaleString("default", { month: "long" })}
+            </p>
+            <p className="text-xs text-slate-400 mt-1 max-w-[200px] mx-auto">
+              {hasHistory
+                ? "You have past transactions, but nothing for this month yet."
+                : "Tell me about your expenses or upload a statement."}
             </p>
           </div>
         </div>
@@ -106,7 +134,10 @@ export function SpendingChart() {
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => [formatCurrency(Number(value), currency), "Amount"]}
+              formatter={(value) => [
+                formatCurrency(Number(value), currency),
+                "Amount",
+              ]}
               contentStyle={{
                 borderRadius: "12px",
                 border: "none",

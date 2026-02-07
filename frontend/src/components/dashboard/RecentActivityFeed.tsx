@@ -1,9 +1,20 @@
 "use client";
 
 import { useFinancial } from "@/contexts/FinancialContext";
-import { CATEGORY_META, type SpendingEntry, type CurrencyCode } from "@/lib/types";
+import {
+  CATEGORY_META,
+  type SpendingEntry,
+  type CurrencyCode,
+  type Account,
+} from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Wallet,
+  Building2,
+  CreditCard,
+} from "lucide-react";
 import Link from "next/link";
 
 function ActivitySkeleton() {
@@ -19,7 +30,15 @@ function ActivitySkeleton() {
   );
 }
 
-function ActivityItem({ entry, currency }: { entry: SpendingEntry; currency: CurrencyCode }) {
+function ActivityItem({
+  entry,
+  currency,
+  account,
+}: {
+  entry: SpendingEntry;
+  currency: CurrencyCode;
+  account?: Account;
+}) {
   const meta = CATEGORY_META[entry.category];
   // Default to debit (expense) unless explicitly marked as income
   const isIncome = entry.type === "income";
@@ -63,18 +82,35 @@ function ActivityItem({ entry, currency }: { entry: SpendingEntry; currency: Cur
   const displayDate = entry.createdAt || entry.date || "";
 
   return (
-    <div className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer">
+    <div className="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl transition-colors cursor-pointer group">
       <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg shadow-sm"
         style={{ backgroundColor: `${meta.color}15` }}
       >
         {meta.emoji}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-800 truncate">
-          {entry.description || meta.label}
-        </p>
-        <p className="text-xs text-slate-500">{formatDate(displayDate)}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-slate-800 truncate">
+            {entry.description || meta.label}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span>{formatDate(displayDate)}</span>
+          {account && (
+            <>
+              <span className="w-0.5 h-0.5 rounded-full bg-slate-300" />
+              <span className="flex items-center gap-1 text-slate-400 font-medium truncate max-w-[100px]">
+                {account.type === "cash" ? (
+                  <Wallet className="w-3 h-3" />
+                ) : (
+                  <Building2 className="w-3 h-3" />
+                )}
+                {account.name}
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-1">
         {isDebit ? (
@@ -85,7 +121,8 @@ function ActivityItem({ entry, currency }: { entry: SpendingEntry; currency: Cur
         <span
           className={`text-sm font-semibold ${isDebit ? "text-red-600" : "text-green-600"}`}
         >
-          {isIncome ? "+" : "-"} {formatCurrency(Math.abs(entry.amount), currency)}
+          {isIncome ? "+" : "-"}{" "}
+          {formatCurrency(Math.abs(entry.amount), currency)}
         </span>
       </div>
     </div>
@@ -156,7 +193,12 @@ export function RecentActivityFeed() {
       </div>
       <div className="space-y-1">
         {recentTransactions.map((entry) => (
-          <ActivityItem key={entry.id} entry={entry} currency={currency} />
+          <ActivityItem
+            key={entry.id}
+            entry={entry}
+            currency={currency}
+            account={profile.accounts.find((a) => a.id === entry.accountId)}
+          />
         ))}
       </div>
     </div>

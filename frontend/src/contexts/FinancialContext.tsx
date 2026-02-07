@@ -49,8 +49,10 @@ interface FinancialContextType {
   addRecurringItem: (item: RecurringItem) => void;
   updateRecurringItem: (id: string, updates: Partial<RecurringItem>) => void;
   deleteRecurringItem: (id: string) => void;
-  // Existing methods
+  // Spending/Transaction methods
   addSpending: (entry: SpendingEntry) => void;
+  addTransactions: (entries: SpendingEntry[]) => void;
+  deleteSpending: (id: string) => void;
   addSpendingSummary: (
     category: SpendingCategory,
     amount: number,
@@ -147,7 +149,8 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
             const loadedProfile: UserFinancialProfile = {
               id: dbProfile.id,
               name: dbProfile.name || undefined,
-              currency: (dbProfile.currency as CurrencyCode) || DEFAULT_CURRENCY,
+              currency:
+                (dbProfile.currency as CurrencyCode) || DEFAULT_CURRENCY,
               income: dbProfile.income_amount
                 ? {
                     amount: Number(dbProfile.income_amount),
@@ -336,6 +339,9 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
         if (profileError) {
           console.error("Error saving profile to Supabase:", profileError);
+          toast.error(
+            "Failed to save profile changes. Please check your connection.",
+          );
           return;
         }
 
@@ -493,11 +499,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
         // Sync Spending Entries
         if (newProfile.monthlySpending.length > 0) {
-          // For spending entries, we only upsert to avoid deleting historical data
-          // that might not be loaded in the current profile (if we only load monthly).
-          // However, assuming profile.monthlySpending contains ALL loaded entries we want to persist.
-          // Let's stick to upserting the current ones.
-
           const upserts = newProfile.monthlySpending.map((entry) => ({
             id: entry.id,
             profile_id: profileId,
@@ -519,12 +520,16 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
           if (spendingError) {
             console.error("Error syncing spending entries:", spendingError);
+            toast.error(
+              "Failed to save transactions. Some data might be invalid.",
+            );
           }
         }
 
         console.log("Profile synced to Supabase");
       } catch (error) {
         console.error("Failed to sync to Supabase:", error);
+        toast.error("Sync failed. Your recent changes might not be saved.");
       } finally {
         setIsSyncing(false);
       }
@@ -725,6 +730,86 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Bulk add transactions (optimized for statement uploads)
+  const addTransactions = useCallback((entries: SpendingEntry[]) => {
+    if (entries.length === 0) return;
+
+    setProfile((prev) => {
+      let newAccounts = [...prev.accounts];
+      let newSummaries = [...prev.spendingSummary];
+      let newBudgets = [...prev.budgets];
+
+      // 1. Update Accounts & Summaries & Budgets
+      entries.forEach((entry) => {
+        // Accounts
+        if (entry.accountId) {
+          const accIndex = newAccounts.findIndex(
+            (a) => a.id === entry.accountId,
+          );
+          if (accIndex >= 0) {
+            const acc = newAccounts[accIndex];
+            if (entry.type === "income") {
+              newAccounts[accIndex] = {
+                ...acc,
+                balance: acc.balance + entry.amount,
+              };
+            } else if (entry.type !== "transfer") {
+              newAccounts[accIndex] = {
+                ...acc,
+                balance: acc.balance - entry.amount,
+              };
+            }
+            // Note: Transfers are usually internal, handling bulk transfers might need more logic
+            // providing for now simple debit/credit logic
+          }
+        }
+
+        // Summaries (Expense only)
+        if (entry.type !== "income" && entry.type !== "transfer") {
+          const sumIndex = newSummaries.findIndex(
+            (s) => s.category === entry.category,
+          );
+          if (sumIndex >= 0) {
+            newSummaries[sumIndex] = {
+              ...newSummaries[sumIndex],
+              total: newSummaries[sumIndex].total + entry.amount,
+              transactionCount: newSummaries[sumIndex].transactionCount + 1,
+            };
+          } else {
+            newSummaries.push({
+              category: entry.category,
+              total: entry.amount,
+              confidence: entry.confidence,
+              transactionCount: 1,
+            });
+          }
+
+          // Budgets
+          const budgetIndex = newBudgets.findIndex(
+            (b) => b.category === entry.category,
+          );
+          if (budgetIndex >= 0) {
+            newBudgets[budgetIndex] = {
+              ...newBudgets[budgetIndex],
+              spent: newBudgets[budgetIndex].spent + entry.amount,
+            };
+          }
+        }
+      });
+
+      return {
+        ...prev,
+        accounts: newAccounts,
+        monthlySpending: [...prev.monthlySpending, ...entries],
+        spendingSummary: newSummaries,
+        budgets: newBudgets,
+        lastUpdated: new Date().toISOString(),
+      };
+    });
+
+    toast.success(`Imported ${entries.length} transactions! 🚀`);
+  }, []);
+
   // Update spending summary (kept for bulk updates if needed, but updated to handle budgets)
   const addSpendingSummary = useCallback(
     (
@@ -770,6 +855,73 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  // Delete spending entry
+  const deleteSpending = useCallback((id: string) => {
+    setProfile((prev) => {
+      const entry = prev.monthlySpending.find((s) => s.id === id);
+      if (!entry) return prev;
+
+      let newAccounts = [...prev.accounts];
+
+      // Revert account balance
+      if (entry.accountId) {
+        newAccounts = newAccounts.map((acc) => {
+          if (acc.id === entry.accountId) {
+            if (entry.type === "income") {
+              return { ...acc, balance: acc.balance - entry.amount };
+            } else if (entry.type === "expense") {
+              return { ...acc, balance: acc.balance + entry.amount };
+            }
+          }
+          return acc;
+        });
+      }
+
+      // Revert spending summary
+      let newSummaries = [...prev.spendingSummary];
+      if (entry.type === "expense") {
+        const sumIndex = newSummaries.findIndex(
+          (s) => s.category === entry.category,
+        );
+        if (sumIndex >= 0) {
+          const newTotal = newSummaries[sumIndex].total - entry.amount;
+          if (newTotal <= 0 && newSummaries[sumIndex].transactionCount <= 1) {
+            newSummaries = newSummaries.filter((_, i) => i !== sumIndex);
+          } else {
+            newSummaries[sumIndex] = {
+              ...newSummaries[sumIndex],
+              total: Math.max(0, newTotal),
+              transactionCount: Math.max(
+                0,
+                newSummaries[sumIndex].transactionCount - 1,
+              ),
+            };
+          }
+        }
+      }
+
+      // Revert budget
+      let newBudgets = [...prev.budgets];
+      if (entry.type === "expense") {
+        newBudgets = newBudgets.map((b) =>
+          b.category === entry.category
+            ? { ...b, spent: Math.max(0, b.spent - entry.amount) }
+            : b,
+        );
+      }
+
+      return {
+        ...prev,
+        accounts: newAccounts,
+        monthlySpending: prev.monthlySpending.filter((s) => s.id !== id),
+        spendingSummary: newSummaries,
+        budgets: newBudgets,
+        lastUpdated: new Date().toISOString(),
+      };
+    });
+    toast.success("Transaction deleted");
+  }, []);
 
   // Update spending summary
   const updateSpendingSummary = useCallback((summaries: SpendingSummary[]) => {
@@ -889,6 +1041,8 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         updateRecurringItem,
         deleteRecurringItem,
         addSpending,
+        addTransactions,
+        deleteSpending,
         addSpendingSummary,
         updateSpendingSummary,
         addGoal,

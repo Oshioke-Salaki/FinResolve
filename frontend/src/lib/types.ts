@@ -145,6 +145,10 @@ export type SpendingCategory =
   | "salary"
   | "business"
   | "gift"
+  | "travel"
+  | "insurance"
+  | "subscriptions"
+  | "charity"
   | "other";
 
 // Individual spending entry
@@ -255,6 +259,9 @@ export interface UploadedTransaction {
   type: "credit" | "debit";
   suggestedCategory?: SpendingCategory;
   confirmed: boolean;
+  merchantName?: string;
+  confidence?: ConfidenceLevel;
+  isDuplicate?: boolean;
 }
 
 // Upload preview state
@@ -383,5 +390,9 @@ export const CATEGORY_META: Record<
   salary: { label: "Salary / Income", color: "#16a34a", emoji: "💸" },
   business: { label: "Business Income", color: "#0891b2", emoji: "💼" },
   gift: { label: "Gifts", color: "#db2777", emoji: "🎁" },
+  travel: { label: "Travel", color: "#8b5cf6", emoji: "✈️" },
+  insurance: { label: "Insurance", color: "#94a3b8", emoji: "🛡️" },
+  subscriptions: { label: "Subscriptions", color: "#f59e0b", emoji: "🔄" },
+  charity: { label: "Charity & Donations", color: "#14b8a6", emoji: "🤲" },
   other: { label: "Other", color: "#6b7280", emoji: "📦" },
 };

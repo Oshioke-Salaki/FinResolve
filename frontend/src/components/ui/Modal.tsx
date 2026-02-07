@@ -4,15 +4,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/lib/utils";
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  className,
+}: ModalProps) {
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -41,16 +49,19 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998]"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-9998"
           />
 
           {/* Modal Content */}
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-[9999] pointer-events-none">
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-9999 pointer-events-none">
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-white rounded-3xl shadow-xl w-full max-w-md pointer-events-auto overflow-hidden border border-gray-100"
+              className={cn(
+                "bg-white rounded-3xl shadow-xl w-full max-w-md pointer-events-auto overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]",
+                className,
+              )}
             >
               {/* Header */}
               <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
@@ -66,7 +77,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
               </div>
 
               {/* Body */}
-              <div className="p-6">{children}</div>
+              <div className="p-6 flex-1 min-h-0 flex flex-col">{children}</div>
             </motion.div>
           </div>
         </>

@@ -1,0 +1,122 @@
+"use server";
+
+import { openai, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
+
+// Polyfill for PDF.js in Node environment (required by pdf-parse)
+// @ts-ignore
+if (typeof DOMMatrix === "undefined") {
+  // @ts-ignore
+  global.DOMMatrix = class DOMMatrix {
+    a = 1;
+    b = 0;
+    c = 0;
+    d = 1;
+    e = 0;
+    f = 0;
+    constructor() {}
+  };
+}
+
+// @ts-ignore
+let pdf = require("pdf-parse");
+
+// @ts-ignore
+if (typeof pdf !== "function") {
+  // @ts-ignore
+  if (pdf.default) {
+    // @ts-ignore
+    pdf = pdf.default;
+  } else if (pdf.PDFParse) {
+    // @ts-ignore
+    pdf = pdf.PDFParse;
+  }
+}
+import { type UploadedTransaction } from "@/lib/types";
+
+export async function parsePDFStatement(
+  formData: FormData,
+): Promise<UploadedTransaction[]> {
+  const file = formData.get("file") as File;
+
+  if (!file) {
+    throw new Error("No file uploaded");
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Extract text from PDF
+    // @ts-ignore
+    const parser = new pdf({ data: buffer });
+    // @ts-ignore
+    const data = await parser.getText();
+    // @ts-ignore
+    await parser.destroy();
+
+    const textContent = data.text;
+
+    // Use AI to structure the text into transactions
+    // We'll process the first 15000 tokens of text to avoid context limits.
+    const truncatedText = textContent.slice(0, 15000);
+
+    const prompt = `
+    You are a financial data parser. Extract bank transactions from the following raw PDF text.
+    
+    Raw Text:
+    """
+    ${truncatedText}
+    """
+
+    Instructions:
+    1. Identify the transaction table or list.
+    2. Extract Date, Description, Amount, and Type (Credit/Debit or Income/Expense).
+    3. Ignore header info (address, account summary) and footer info.
+    4. For Amount: Ensure it is a positive number.
+    5. For Type: Determine if money left the account (debit) or entered (credit).
+    6. Return a JSON object with a key "transactions" containing an array of objects.
+    
+    Output Format (JSON):
+    {
+      "transactions": [
+        {
+          "date": "YYYY-MM-DD",
+          "description": "string (raw description)",
+          "amount": 123.45,
+          "type": "credit" | "debit" 
+        }
+      ]
+    }
+    `;
+
+    const completion = await openai.chat.completions.create({
+      model: OPENAI_MODEL_NAME,
+      messages: [{ role: "system", content: prompt }],
+      temperature: 0,
+      response_format: { type: "json_object" },
+    });
+
+    const responseContent = completion.choices[0].message.content;
+    if (!responseContent) throw new Error("No response from AI parser");
+
+    const parsed = JSON.parse(responseContent);
+    const rawTransactions = parsed.transactions || [];
+
+    // Map to UploadedTransaction format
+    return rawTransactions.map((t: any) => ({
+      id: crypto.randomUUID(),
+      date: t.date,
+      description: t.description,
+      amount: Number(t.amount),
+      type: t.type,
+      confirmed: false,
+      // We let the NEXT step (the existing AI categorizer) handle categorization and cleaning
+      // to keep this step focused purely on extraction.
+    }));
+  } catch (error) {
+    console.error("PDF Parsing Error:", error);
+    throw new Error(
+      `Failed to parse PDF: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}

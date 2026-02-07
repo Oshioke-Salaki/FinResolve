@@ -41,58 +41,38 @@ export function TrendChart() {
     return <ChartSkeleton />;
   }
 
-  // Group spending by day for the current month
-  const today = new Date();
-  const currentMonth = today.getMonth();
-  const currentYear = today.getFullYear();
-
-  // Create a map of daily spending
-  const dailySpending = new Map<number, number>();
-
-  profile.monthlySpending.forEach((entry) => {
-    if (entry.date) {
-      const date = new Date(entry.date);
-      if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-        const day = date.getDate();
-        dailySpending.set(day, (dailySpending.get(day) || 0) + entry.amount);
-      }
-    }
-  });
-
-  // If no daily data, use summary data distributed across days
-  if (dailySpending.size === 0 && profile.spendingSummary.length > 0) {
-    const totalSpending = profile.spendingSummary.reduce((s, c) => s + c.total, 0);
-    const daysPassed = today.getDate();
-    const avgDaily = totalSpending / daysPassed;
-
-    // Create synthetic daily data with some variance
-    for (let day = 1; day <= daysPassed; day++) {
-      const variance = 0.7 + Math.random() * 0.6; // 70% to 130%
-      dailySpending.set(day, avgDaily * variance);
-    }
-  }
-
-  // Build chart data for last 7 days
+  // Calculate monthly spending for the last 6 months
   const chartData = [];
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const today = new Date();
 
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const dayOfMonth = date.getDate();
-    const dayName = dayNames[date.getDay()];
+  // Normalize monthly income
+  let monthlyBudget = profile.income?.amount || 0;
+  if (profile.income?.frequency === "weekly") monthlyBudget *= 4.33;
+  if (profile.income?.frequency === "yearly") monthlyBudget /= 12;
 
-    // Current month spending
-    const spend = dailySpending.get(dayOfMonth) || 0;
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const month = d.getMonth();
+    const year = d.getFullYear();
+    const monthName = d.toLocaleDateString("en-US", { month: "short" });
 
-    // Calculate "last month" comparison (using average as baseline)
-    const monthlyIncome = profile.income?.amount || 0;
-    const dailyBudget = monthlyIncome / 30;
+    // Calculate total spend for this month
+    const monthlySpend = profile.monthlySpending
+      .filter((t) => {
+        if (!t.date && !t.createdAt) return false;
+        const tDate = new Date(t.date || t.createdAt || "");
+        return (
+          tDate.getMonth() === month &&
+          tDate.getFullYear() === year &&
+          t.type === "expense"
+        );
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
 
     chartData.push({
-      name: dayName,
-      spend: Math.round(spend),
-      budget: Math.round(dailyBudget),
+      name: monthName,
+      spend: Math.round(monthlySpend),
+      budget: Math.round(monthlyBudget),
     });
   }
 
@@ -102,13 +82,13 @@ export function TrendChart() {
     return (
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-border h-full flex flex-col">
         <h3 className="text-lg font-semibold mb-6 text-slate-800">
-          Weekly Spending Trend
+          Monthly Spending Trend
         </h3>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <p className="text-sm text-slate-400">No spending data yet</p>
             <p className="text-xs text-slate-400 mt-1">
-              Your spending trend will appear here
+              Your monthly spending trend will appear here
             </p>
           </div>
         </div>
@@ -120,7 +100,7 @@ export function TrendChart() {
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-border h-full flex flex-col">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-slate-800">
-          Weekly Spending Trend
+          Monthly Spending Trend
         </h3>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
@@ -129,7 +109,7 @@ export function TrendChart() {
           </div>
           <div className="flex items-center gap-1.5">
             <div className="w-3 h-0.5 bg-slate-300" />
-            <span className="text-slate-500">Budget</span>
+            <span className="text-slate-500">Income</span>
           </div>
         </div>
       </div>
@@ -158,7 +138,9 @@ export function TrendChart() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: "#64748B", fontSize: 12 }}
-              tickFormatter={(value) => `${currencySymbol}${(value / 1000).toFixed(0)}k`}
+              tickFormatter={(value) =>
+                `${currencySymbol}${(value / 1000).toFixed(0)}k`
+              }
             />
             <Tooltip
               cursor={{ fill: "#F1F5F9" }}
@@ -169,7 +151,7 @@ export function TrendChart() {
               }}
               formatter={(value, name) => [
                 formatCurrency(Number(value), currency),
-                name === "spend" ? "Spent" : "Budget",
+                name === "spend" ? "Spent" : "Income Goal",
               ]}
             />
             <Area

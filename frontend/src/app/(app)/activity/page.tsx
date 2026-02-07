@@ -180,6 +180,9 @@ export default function ActivityPage() {
                   Transaction
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Account
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Category
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -194,7 +197,7 @@ export default function ActivityPage() {
               {currentTransactions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     No transactions found matching your filters.
@@ -205,6 +208,9 @@ export default function ActivityPage() {
                   const meta = CATEGORY_META[t.category];
                   const isIncome = t.type === "income";
                   const isTransfer = t.type === "transfer";
+                  const account = profile.accounts.find(
+                    (a) => a.id === t.accountId,
+                  );
 
                   return (
                     <tr
@@ -229,6 +235,20 @@ export default function ActivityPage() {
                             )}
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {account ? (
+                          <div className="flex items-center gap-2">
+                            {/* No icon for cleaner look or use simple one */}
+                            <span className="text-sm font-medium text-slate-700">
+                              {account.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-slate-400 font-medium">
+                            —
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-700">
