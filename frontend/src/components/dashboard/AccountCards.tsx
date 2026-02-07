@@ -36,7 +36,7 @@ export function AccountCards() {
           onClick={() => setShowAddForm(true)}
           disabled={accounts.length >= 3}
           className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-full transition-colors",
+            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-full transition-colors cursor-pointer",
             accounts.length >= 3
               ? "text-slate-500 bg-slate-800/50 border-slate-700 cursor-not-allowed"
               : "text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/20",
@@ -82,7 +82,7 @@ export function AccountCards() {
         {accounts.length === 0 && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="p-5 rounded-2xl bg-slate-800/50 border border-dashed border-slate-700 hover:border-slate-600 hover:bg-slate-800 transition-all flex flex-col items-center justify-center text-slate-500 gap-2 h-full min-h-[140px]"
+            className="p-5 rounded-2xl bg-slate-800/95 border border-dashed border-slate-700 hover:border-slate-600 hover:bg-slate-800 transition-all flex flex-col items-center justify-center text-slate-500 gap-2 h-full min-h-[140px]"
           >
             <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
               <Plus className="w-5 h-5" />

@@ -19,6 +19,7 @@
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase" alt="Supabase"/>
   <img src="https://img.shields.io/badge/OpenAI-GPT--4o-412991?logo=openai" alt="OpenAI"/>
   <img src="https://img.shields.io/badge/TailwindCSS-4.x-06B6D4?logo=tailwindcss" alt="Tailwind"/>
+  <img src="https://img.shields.io/badge/Opik-LLM_Tracing-FF6F00?logo=comet-ml" alt="Opik"/>
 </p>
 
 ---
@@ -153,11 +154,53 @@ Each score comes with **AI-generated recommendations** to improve your financial
 
 ### Bank Statement Import
 
-**CSV Upload Support**
-- Intelligent column detection (handles different bank formats)
-- Auto-categorization of imported transactions
-- Preview and review before finalizing import
+**CSV & PDF Upload Support**
+- Upload bank statements in **CSV or PDF** format
+- Multi-step upload wizard with drag-and-drop support:
+  1. Select the account to import into
+  2. Upload your file (CSV or PDF)
+  3. AI processes and categorizes transactions
+  4. Preview results with duplicate detection before confirming
+- **AI-Powered Categorization Pipeline**: Transactions are processed in batches of 20 through GPT-4o, which cleans merchant names (strips POS/TRF prefixes, location codes), assigns one of 23 spending categories, and rates confidence (high/medium/low)
+- Intelligent column detection for CSV (handles different bank formats)
+- PDF text extraction with AI-powered structure recognition and date inference
 - Bulk import saves hours of manual entry
+
+---
+
+### Monthly Financial Reports
+
+**Downloadable PDF Reports**
+- Generate professional monthly financial reports as downloadable PDFs
+- Select any month/year to generate a report for
+- Report includes:
+  - **Executive Summary**: Total income, expenses, net savings, and savings rate
+  - **Cash Flow Visualization**: Visual bar showing income vs. expenses
+  - **Spending by Category**: Full breakdown table of where your money went
+  - **Top Expenses**: Largest individual transactions for the month
+  - **AI Insights**: GPT-4o analyzes your month and provides a personalized summary with recommendations
+- Professional formatting with FinResolve branding
+
+---
+
+### Weekly Insights Dashboard
+
+**Dedicated Analytics Page**
+- KPI cards: total spent this week, daily average, top spending category
+- Daily spending trend chart (last 7 days)
+- Category breakdown pie chart
+- AI coach commentary analyzing your patterns
+- Quick-add expense button for on-the-spot logging
+
+---
+
+### Activity History
+
+**Full Transaction Ledger**
+- Complete history of all transactions with pagination
+- Multi-filter system: by type (expense/income/transfer), by category, by search term
+- Sorting options: newest, oldest, highest amount, lowest amount
+- Shows date, merchant name, category, amount, and associated account for every entry
 
 ---
 
@@ -210,42 +253,76 @@ No overwhelming forms. No 50-field profiles. Just what we need to start helping 
 ### AI & Intelligence
 | Technology | Purpose |
 |------------|---------|
-| **OpenAI GPT-4o** | Primary conversational AI |
-| **Google Gemini** | Fallback LLM |
-| **Opik (Comet ML)** | LLM observability & tracing |
-| **Custom NLP** | Nigerian currency & intent parsing |
+| **OpenAI GPT-4o** | Primary conversational AI for chat coaching, transaction categorization, and report insights |
+| **Google Gemini** | Secondary LLM used for general question answering during onboarding |
+| **Opik (Comet ML)** | LLM observability platform — traces every AI call across the app (see details below) |
+| **Custom NLP** | Currency shorthand & intent parsing |
+
+### Document Processing & Reports
+| Technology | Purpose |
+|------------|---------|
+| **jsPDF + autoTable** | Client-side PDF report generation with tables and charts |
+| **pdf-parse** | Extract text from uploaded PDF bank statements |
+
+### Opik — What It Does
+
+[Opik](https://www.comet.com/site/products/opik/) by Comet ML is the **LLM observability layer** for FinResolve. Every AI call in the app is traced through Opik so developers can monitor, debug, and optimize AI behavior in production.
+
+**What Opik traces in FinResolve:**
+
+| Traced Operation | Trace Name | What Gets Logged |
+|------------------|------------|------------------|
+| **AI Chat Responses** | `financial-advice` | User query, profile summary (name, income, spending total, goals count), full AI response, latency (ms), token usage (prompt/completion/total), model name |
+| **Bank Statement Categorization** | `ai-categorization` | Batch size, sample transaction description, number of transactions processed |
+| **Weekly Insight Generation** | `weekly-insight` | Total spending, income, the generated insight type and message |
+
+**How it works:**
+- Each AI operation creates a **trace** (the top-level unit) with input/output data and tags (e.g., `["openai", "financial-coach"]`)
+- Within a trace, **spans** capture granular steps — for example, the `openai-generation` span inside a chat trace logs the exact messages sent to the API, the response, model, provider, and latency
+- After each operation, the Opik buffer is flushed to send data to the Comet dashboard
+- All traces are organized under the project name `FinResolve1` in the Opik workspace
+
+**Why this matters:**
+- **Debugging**: See exactly what the AI received and responded with for any user interaction
+- **Performance**: Track latency per call to identify slow responses
+- **Cost monitoring**: Token usage per request helps forecast and control API spend
+- **Quality**: Review AI outputs in the Opik dashboard to catch bad responses or hallucinations
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (Next.js)                       │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │  Dashboard   │  │   Chat AI    │  │   Onboarding         │   │
-│  │  - Pulse     │  │  - GPT-4o    │  │   - 4-Step Wizard    │   │
-│  │  - Charts    │  │  - Actions   │  │   - Profile Setup    │   │
-│  │  - Goals     │  │  - NLP Parse │  │                      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-│                              │                                   │
-│  ┌───────────────────────────┴───────────────────────────────┐   │
-│  │              Context Providers (Auth + Financial)          │   │
-│  └────────────────────────────┬──────────────────────────────┘   │
-└───────────────────────────────┼──────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          FRONTEND (Next.js)                          │
+├──────────────────────────────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────┐  ┌───────────┐  │
+│  │  Dashboard   │  │   Chat AI    │  │ Onboarding │  │  Reports  │  │
+│  │  - Pulse     │  │  - GPT-4o    │  │ - 4-Step   │  │ - Monthly │  │
+│  │  - Charts    │  │  - Actions   │  │   Wizard   │  │   PDF     │  │
+│  │  - Goals     │  │  - NLP Parse │  │ - Profile  │  │ - AI      │  │
+│  │  - Budgets   │  │  - History   │  │   Setup    │  │   Insight │  │
+│  └──────────────┘  └──────────────┘  └────────────┘  └───────────┘  │
+│                              │                                       │
+│  ┌───────────────────────────┴────────────────────────────────────┐  │
+│  │               Context Providers (Auth + Financial)             │  │
+│  └────────────────────────────┬───────────────────────────────────┘  │
+└───────────────────────────────┼──────────────────────────────────────┘
                                 │
-                    ┌───────────┴───────────┐
-                    │    Server Actions     │
-                    │  (ai.ts, insights.ts) │
-                    └───────────┬───────────┘
+              ┌─────────────────┴──────────────────┐
+              │          Server Actions            │
+              │  ai.ts, ai-categorize.ts,          │
+              │  parse-pdf.ts, insights.ts,        │
+              │  report.ts                         │
+              └─────────────────┬──────────────────┘
                                 │
-          ┌─────────────────────┼─────────────────────┐
-          │                     │                     │
-    ┌─────┴─────┐        ┌──────┴──────┐       ┌──────┴──────┐
-    │  Supabase │        │   OpenAI    │       │    Opik     │
-    │  Database │        │   GPT-4o    │       │  Tracing    │
-    └───────────┘        └─────────────┘       └─────────────┘
+     ┌──────────────┬───────────┼───────────┬──────────────┐
+     │              │           │           │              │
+┌────┴─────┐ ┌──────┴────┐ ┌───┴────┐ ┌────┴─────┐ ┌──────┴─────┐
+│ Supabase │ │  OpenAI   │ │ Gemini │ │   Opik   │ │   jsPDF    │
+│ Database │ │  GPT-4o   │ │  LLM   │ │ Tracing  │ │   Reports  │
+│ + Auth   │ │ Chat/Cat. │ │Onboard.│ │ Observ.  │ │   PDF Gen  │
+└──────────┘ └───────────┘ └────────┘ └──────────┘ └────────────┘
 ```
 
 ---
@@ -255,36 +332,57 @@ No overwhelming forms. No 50-field profiles. Just what we need to start helping 
 ```
 frontend/
 ├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── (app)/              # Protected routes (dashboard, goals, etc.)
-│   │   ├── (auth)/             # Login & signup
-│   │   ├── (marketing)/        # Landing page
-│   │   └── (onboarding)/       # First-time user flow
+│   ├── app/                        # Next.js App Router
+│   │   ├── (app)/                  # Protected routes
+│   │   │   ├── dashboard/          # Main dashboard (70/30 split)
+│   │   │   ├── activity/           # Transaction history & filters
+│   │   │   ├── goals/              # Savings goals management
+│   │   │   ├── budgets/            # Budgets & subscriptions
+│   │   │   ├── insights/           # Weekly analytics dashboard
+│   │   │   └── settings/           # Profile, password, account deletion
+│   │   ├── (auth)/                 # Login & signup
+│   │   ├── (marketing)/            # Landing page
+│   │   └── (onboarding)/           # First-time user flow
 │   │
-│   ├── components/             # React components
-│   │   ├── chat/               # AI chat interface
-│   │   ├── dashboard/          # Dashboard widgets
-│   │   ├── modals/             # Modal dialogs
-│   │   ├── onboarding/         # Wizard steps
-│   │   └── ui/                 # Reusable primitives
+│   ├── components/                 # React components
+│   │   ├── chat/                   # AI chat interface (desktop + mobile)
+│   │   ├── dashboard/              # Dashboard widgets & score modal
+│   │   ├── modals/                 # Statement upload, add transaction, add goal
+│   │   ├── reports/                # Monthly PDF report modal
+│   │   ├── coach/                  # Weekly AI insight widget
+│   │   ├── insights/               # Analytics charts
+│   │   ├── onboarding/             # Wizard steps
+│   │   ├── layout/                 # Sidebar navigation
+│   │   └── ui/                     # Reusable primitives
 │   │
-│   ├── contexts/               # React Context providers
-│   │   ├── AuthContext.tsx     # Authentication state
-│   │   └── FinancialContext.tsx # Financial data state
+│   ├── contexts/                   # React Context providers
+│   │   ├── AuthContext.tsx         # Authentication state
+│   │   └── FinancialContext.tsx    # Financial data state
 │   │
-│   ├── actions/                # Server-side actions
-│   │   ├── ai.ts               # AI response generation
-│   │   └── insights.ts         # Weekly analytics
+│   ├── actions/                    # Server-side actions
+│   │   ├── ai.ts                   # AI chat response generation (Opik-traced)
+│   │   ├── ai-categorize.ts        # Batch transaction categorization (Opik-traced)
+│   │   ├── parse-pdf.ts            # PDF bank statement extraction
+│   │   ├── insights.ts             # Weekly analytics computation
+│   │   ├── report.ts               # AI insights for monthly reports
+│   │   ├── onboarding.ts           # Onboarding Q&A (Gemini)
+│   │   └── account.ts              # Password change & account deletion
 │   │
-│   └── lib/                    # Utilities
-│       ├── scoreCalculation.ts # FinResolve Score algorithm
-│       ├── parseInput.ts       # NLP for currency/categories
-│       ├── parseStatement.ts   # CSV bank statement parser
-│       ├── supabase.ts         # Database client
-│       └── openaiClient.ts     # AI client
+│   └── lib/                        # Utilities
+│       ├── coach/
+│       │   └── generateInsight.ts  # Rule-based weekly insights (Opik-traced)
+│       ├── types.ts                # All TypeScript types & constants
+│       ├── scoreCalculation.ts     # FinResolve Score algorithm
+│       ├── report-generator.ts     # PDF generation (jsPDF + autoTable)
+│       ├── parseInput.ts           # Currency formatting & number parsing
+│       ├── parseStatement.ts       # CSV bank statement parser
+│       ├── supabase.ts             # Supabase database client
+│       ├── openaiClient.ts         # OpenAI API client
+│       ├── geminiClient.ts         # Google Gemini API client
+│       └── opikClient.ts           # Opik observability client
 │
-├── supabase-schema.sql         # Database schema
-└── package.json                # Dependencies
+├── supabase-schema.sql             # Database schema
+└── package.json                    # Dependencies
 ```
 
 ---
@@ -376,9 +474,18 @@ recurring_items    -- Subscriptions & bills
 
    Fill in your credentials:
    ```env
+   # Supabase
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+   # AI Providers
    OPENAI_API_KEY=your_openai_key
+   GEMINI_API_KEY=your_gemini_key          # Optional — used for onboarding Q&A
+
+   # Opik Observability (Optional — for LLM tracing)
+   OPIK_API_KEY=your_opik_api_key
+   OPIK_WORKSPACE=your_workspace_name
+   OPIK_PROJECT_NAME=FinResolve1           # Defaults to "FinResolve1"
    ```
 
 4. **Set up Supabase database**
@@ -449,7 +556,7 @@ Key widgets:
 
 ## Spending Categories
 
-FinResolve supports 18 spending categories:
+FinResolve supports 23 spending categories:
 
 | Category | Emoji | Description |
 |----------|-------|-------------|
@@ -470,6 +577,11 @@ FinResolve supports 18 spending categories:
 | Salary | 💵 | Income from employment |
 | Business | 💼 | Business expenses |
 | Gift | 🎁 | Gifts to others |
+| Data & Airtime | 📱 | Airtime, data bundles |
+| Travel | ✈️ | Flights, hotels, Airbnb |
+| Insurance | 🛡️ | Life, health, car, property |
+| Subscriptions | 🔄 | Spotify, Netflix, app subscriptions |
+| Charity | 🤝 | Donations, tithing, non-profits |
 | Other | 📦 | Miscellaneous |
 
 ---
@@ -478,24 +590,42 @@ FinResolve supports 18 spending categories:
 
 ### Server Actions
 
-#### `generateAIResponse(messages, profile)`
-Generates an AI response with financial context.
+#### `generateAIResponse(query, profile, history)`
+Generates an AI chat response with full financial context. Traced via Opik.
 
 ```typescript
 const response = await generateAIResponse(
-  [{ role: 'user', content: 'I spent 5k on food' }],
-  userProfile
+  'I spent 5k on food',
+  userProfile,
+  chatHistory
 );
-// Returns: { content: string, actions: AIAction[] }
+// Returns: { content: string, confidence: string, actions: AIAction[] }
+// Actions: LOG_EXPENSE, LOG_INCOME, LOG_TRANSFER, UPDATE_GOAL, CREATE_GOAL, CREATE_BUDGET
+```
+
+#### `categorizeTransactionsAI(transactions)`
+Batch-categorizes raw bank transactions using GPT-4o. Traced via Opik.
+
+```typescript
+const categorized = await categorizeTransactionsAI([
+  { id: '1', description: 'POS PAYMENT - CHICKEN REPUB LAGOS', amount: 5000 }
+]);
+// Returns: { id, merchantName: 'Chicken Republic', category: 'food', confidence: 'high' }[]
 ```
 
 #### `generateWeeklyInsight(profile)`
-Generates rule-based weekly financial insights.
+Generates rule-based weekly financial insights. Traced via Opik.
 
 ```typescript
 const insight = await generateWeeklyInsight(userProfile);
-// Returns: { title: string, body: string, type: 'tip' | 'warning' | 'celebration' }
+// Returns: { type: 'spending_spike' | 'saving_opportunity' | 'routine_check', message, confidence }
 ```
+
+#### `generateReportInsight(profile, month)`
+Generates AI-powered insights for monthly PDF reports.
+
+#### `parsePDFStatement(file)`
+Extracts transactions from a PDF bank statement using AI-powered text recognition.
 
 ### Context Hooks
 
@@ -540,14 +670,19 @@ We welcome contributions! Here's how:
 
 ## Roadmaps
 
+### Completed
+- [x] **Multi-currency support** (USD, EUR, GBP, NGN, INR, KES, ZAR, CAD, AUD)
+- [x] **PDF bank statement parsing** with AI-powered categorization
+- [x] **Monthly PDF report generation** with AI insights
+- [x] **LLM observability** via Opik (Comet ML) tracing
+- [x] **Weekly insights dashboard** with charts and AI coach commentary
+
 ### Near Term
-- [ ] PDF bank statement parsing
 - [ ] Email verification flow
 - [ ] Password reset functionality
 - [ ] Push notifications for budget alerts
 
 ### Medium Term
-- [x] **Multi-currency support** (USD, EUR, GBP, NGN, INR, KES, ZAR, CAD, AUD)
 - [ ] Plaid integration for automatic bank sync
 - [ ] Shared budgets (couples/families)
 - [ ] Receipt scanning with OCR
@@ -569,6 +704,8 @@ This project is licensed under the MIT License. See `LICENSE` for details.
 ## Acknowledgments
 
 - **OpenAI** for GPT-4o powering the conversational AI
+- **Google** for Gemini powering onboarding assistance
+- **Comet ML** for Opik — LLM observability and tracing
 - **Supabase** for the incredible backend infrastructure
 - **Vercel** for hosting and deployment
 - **The open-source community** for the amazing tools that made this possible
