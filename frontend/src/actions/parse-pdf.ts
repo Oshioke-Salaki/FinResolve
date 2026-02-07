@@ -1,21 +1,12 @@
 "use server";
 
-import { getOpenAIClient, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
-import { type UploadedTransaction } from "@/lib/types";
-// @ts-ignore
-import { PDFParse } from "pdf-parse";
-
-export type PDFParseResult = {
-  success: boolean;
-  transactions?: UploadedTransaction[];
-  error?: string;
-};
-
-// Polyfill for PDF.js in Node environment (required by pdf-parse)
-// @ts-ignore
-if (typeof DOMMatrix === "undefined") {
-  // @ts-ignore
-  global.DOMMatrix = class DOMMatrix {
+// 1. GLOBAL POLYFILLS (Must be at the very top before any imports that might trigger side effects)
+// Polyfill for PDF.js in Node environment (required by pdf-parse and pdfjs-dist)
+if (
+  typeof global !== "undefined" &&
+  typeof (global as any).DOMMatrix === "undefined"
+) {
+  (global as any).DOMMatrix = class DOMMatrix {
     a = 1;
     b = 0;
     c = 0;
@@ -26,46 +17,36 @@ if (typeof DOMMatrix === "undefined") {
   };
 }
 
+import { getOpenAIClient, OPENAI_MODEL_NAME } from "@/lib/openaiClient";
+import { type UploadedTransaction } from "@/lib/types";
+
+export type PDFParseResult = {
+  success: boolean;
+  transactions?: UploadedTransaction[];
+  error?: string;
+};
+
 export async function parsePDFStatement(
   formData: FormData,
 ): Promise<PDFParseResult> {
   // 1. Initial Logging for Deployment Debugging
   console.log("[parsePDFStatement] Starting PDF parse server action...");
-  console.log(
-    "[parsePDFStatement] OPENAI_API_KEY present:",
-    !!process.env.OPENAI_API_KEY,
-  );
+  // ... rest of the initial logic ...
 
   const file = formData.get("file") as File;
-
-  if (!file) {
-    console.error("[parsePDFStatement] No file found in FormData");
-    return { success: false, error: "No file uploaded" };
-  }
-
-  const fileSizeMB = file.size / (1024 * 1024);
-  console.log(
-    `[parsePDFStatement] File received: ${file.name} (${fileSizeMB.toFixed(2)} MB)`,
-  );
-
-  // Platforms like Vercel have a 4.5MB payload limit for serverless functions
-  if (file.size > 4.5 * 1024 * 1024) {
-    return {
-      success: false,
-      error: `File too large (${fileSizeMB.toFixed(2)}MB). Maximum allowed is 4.5MB for serverless processing.`,
-    };
-  }
+  if (!file) return { success: false, error: "No file uploaded" };
 
   try {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 2. Robust Library Initialization
-    console.log("[parsePDFStatement] Initializing PDFParse instance...");
+    // 2. Dynamic Library Load (Prevents crashing other server actions)
+    console.log("[parsePDFStatement] Dynamically loading pdf-parse...");
+    // @ts-ignore
+    const { PDFParse } = await import("pdf-parse");
+
     if (!PDFParse) {
-      throw new Error(
-        "PDFParse library failed to load. This might be a dependency bundling issue in production.",
-      );
+      throw new Error("PDFParse library failed to load dynamically.");
     }
 
     const parser = new PDFParse({ data: buffer });
