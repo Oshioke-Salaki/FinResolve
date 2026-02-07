@@ -48,12 +48,7 @@ export async function parsePDFStatement(
 
     // Extract text from PDF
     // @ts-ignore
-    const parser = new pdf({ data: buffer });
-    // @ts-ignore
-    const data = await parser.getText();
-    // @ts-ignore
-    await parser.destroy();
-
+    const data = await pdf(buffer);
     const textContent = data.text;
 
     // Use AI to structure the text into transactions
