@@ -46,18 +46,19 @@ export async function parsePDFStatement(
     // @ts-ignore
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
-    // In production (Vercel), we point to a CDN for the worker to avoid bundling path issues.
-    // Even with disableWorker: true, PDF.js often wants a valid workerSrc to initialize.
-    const version = pdfjs.version || "5.4.296";
-    (pdfjs.GlobalWorkerOptions as any).workerSrc =
-      `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.mjs`;
+    // THE NUCLEAR OPTION: Import the worker engine directly and pass it to the "workerPort"
+    // This bypasses all file path and URL resolution logic entirely.
+    // @ts-ignore
+    const pdfWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    (pdfjs.GlobalWorkerOptions as any).workerPort = pdfWorker;
 
+    const version = pdfjs.version || "5.4.296";
     console.log(
-      `[parsePDFStatement] Loading document (Version: ${version})...`,
+      `[parsePDFStatement] Loading document (Version: ${version}) with Internal Worker Port...`,
     );
     const loadingTask = pdfjs.getDocument({
       data,
-      disableWorker: true,
+      disableWorker: true, // Still keep this to force sync execution
       verbosity: 0,
     } as any);
 
