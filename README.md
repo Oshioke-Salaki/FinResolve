@@ -538,7 +538,7 @@ We welcome contributions! Here's how:
 
 ---
 
-## Roadmap
+## Roadmaps
 
 ### Near Term
 - [ ] PDF bank statement parsing
