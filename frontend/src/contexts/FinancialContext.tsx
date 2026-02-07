@@ -241,16 +241,24 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
             const stored = localStorage.getItem(getStorageKey(user.id));
             if (stored) {
               const localProfile = JSON.parse(stored) as UserFinancialProfile;
-              console.log(
-                "Found localStorage profile, hasCompletedOnboarding:",
-                localProfile.hasCompletedOnboarding,
-              );
-              // Use local profile and sync to Supabase
               setProfile(localProfile);
+              console.log("Found localStorage profile for user:", user.id);
             } else {
-              console.log("No profile found anywhere, creating new one");
-              const newProfile = createEmptyProfile();
-              setProfile(newProfile);
+              // No user profile in Supabase OR localStorage - check for anonymous profile to migrate
+              const anonymous = localStorage.getItem(getStorageKey(null));
+              if (anonymous) {
+                const anonProfile = JSON.parse(
+                  anonymous,
+                ) as UserFinancialProfile;
+                console.log("Migrating anonymous profile to user:", user.id);
+                setProfile(anonProfile);
+                localStorage.setItem(getStorageKey(user.id), anonymous);
+                localStorage.removeItem(getStorageKey(null));
+              } else {
+                console.log("No profile found anywhere, creating new one");
+                const newProfile = createEmptyProfile();
+                setProfile(newProfile);
+              }
             }
           }
         } else {
@@ -277,23 +285,23 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     loadProfile();
   }, [user, authLoading]);
 
-  // Save to Supabase and localStorage
+  // Save to localStorage immediately
+  useEffect(() => {
+    if (!isLoading) {
+      localStorage.setItem(
+        getStorageKey(user?.id || null),
+        JSON.stringify(profile),
+      );
+    }
+  }, [profile, isLoading, user]);
+
+  // Save to Supabase (debounced)
   const saveToSupabase = useCallback(
     async (newProfile: UserFinancialProfile) => {
-      if (!user?.id) {
-        // Not authenticated, just save to localStorage
-        localStorage.setItem(getStorageKey(null), JSON.stringify(newProfile));
-        return;
-      }
+      if (!user?.id) return;
 
       setIsSyncing(true);
       try {
-        // Save to localStorage first (immediate)
-        localStorage.setItem(
-          getStorageKey(user.id),
-          JSON.stringify(newProfile),
-        );
-
         // First, check if a profile already exists for this user
         const { data: existingProfile } = await supabase
           .from("profiles")
@@ -303,8 +311,10 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
         const profileId = existingProfile?.id || newProfile.id;
 
-        // Update the local profile with the correct ID if needed
+        // Update the local profile state if the ID in Supabase is different
+        // This ensures subsequent state updates use the correct ID
         if (existingProfile?.id && existingProfile.id !== newProfile.id) {
+          setProfile((prev) => ({ ...prev, id: existingProfile.id }));
           newProfile = { ...newProfile, id: existingProfile.id };
           localStorage.setItem(
             getStorageKey(user.id),
@@ -451,10 +461,10 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           await supabase
             .from("spending_summaries")
             .delete()
-            .eq("profile_id", newProfile.id);
+            .eq("profile_id", profileId);
 
           const summariesToInsert = newProfile.spendingSummary.map((s) => ({
-            profile_id: newProfile.id,
+            profile_id: profileId,
             category: s.category,
             total: s.total,
             confidence: s.confidence,
@@ -468,7 +478,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         const { data: existingGoals } = await supabase
           .from("savings_goals")
           .select("id")
-          .eq("profile_id", newProfile.id);
+          .eq("profile_id", profileId);
 
         const existingGoalIds = new Set(existingGoals?.map((g) => g.id) || []);
         const currentGoalIds = new Set(newProfile.goals.map((g) => g.id));
@@ -485,7 +495,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         if (newProfile.goals.length > 0) {
           const goalsToUpsert = newProfile.goals.map((g) => ({
             id: g.id,
-            profile_id: newProfile.id,
+            profile_id: profileId,
             name: g.name,
             target: g.target,
             current: g.current,
@@ -510,6 +520,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
             date: entry.date || null,
             merchant_name: entry.merchantName || null,
             account_id: entry.accountId || null,
+            destination_account_id: entry.destinationAccountId || null,
             is_recurring: entry.isRecurring || false,
             type: entry.type || "expense",
           }));
@@ -934,9 +945,15 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
   // Add goal
   const addGoal = useCallback((goal: SavingsGoal) => {
+    // Ensure deadline is a full date string for Supabase (YYYY-MM-DD)
+    const formattedGoal = { ...goal };
+    if (formattedGoal.deadline && formattedGoal.deadline.length === 7) {
+      formattedGoal.deadline = `${formattedGoal.deadline}-01`;
+    }
+
     setProfile((prev) => ({
       ...prev,
-      goals: [...prev.goals, goal],
+      goals: [...prev.goals, formattedGoal],
       lastUpdated: new Date().toISOString(),
     }));
     toast.success(`New goal: ${goal.name} 🎯`);
@@ -945,9 +962,17 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   // Update goal
   const updateGoal = useCallback(
     (id: string, updates: Partial<SavingsGoal>) => {
+      // Ensure deadline is a full date string for Supabase (YYYY-MM-DD)
+      const formattedUpdates = { ...updates };
+      if (formattedUpdates.deadline && formattedUpdates.deadline.length === 7) {
+        formattedUpdates.deadline = `${formattedUpdates.deadline}-01`;
+      }
+
       setProfile((prev) => ({
         ...prev,
-        goals: prev.goals.map((g) => (g.id === id ? { ...g, ...updates } : g)),
+        goals: prev.goals.map((g) =>
+          g.id === id ? { ...g, ...formattedUpdates } : g,
+        ),
         lastUpdated: new Date().toISOString(),
       }));
       if (updates.current) {
