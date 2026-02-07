@@ -26,11 +26,9 @@ export function DashboardHeader({ aiNudge }: DashboardHeaderProps) {
     <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100">
       <div className="flex flex-col">
         <h1 className="text-xl font-semibold text-slate-800">
-          {getGreeting()}, {displayName}
+          {/* {getGreeting()}, {displayName}  */}
         </h1>
-        {aiNudge && (
-          <p className="text-sm text-slate-500 mt-0.5">{aiNudge}</p>
-        )}
+        {aiNudge && <p className="text-sm text-slate-500 mt-0.5">{aiNudge}</p>}
       </div>
 
       <div className="flex items-center gap-2">

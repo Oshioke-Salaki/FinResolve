@@ -324,6 +324,17 @@ const CATEGORY_KEYWORDS: Record<SpendingCategory, string[]> = {
   salary: ["salary", "wage", "payroll"],
   business: ["business", "invoice", "client", "freelance", "contract"],
   gift: ["gift", "donation", "charity", "tithe", "offering"],
+  travel: ["travel", "flight", "hotel", "airbnb", "vacation", "booking.com"],
+  insurance: ["insurance", "premium", "axamansard", "reliancehmo", "allianz"],
+  subscriptions: [
+    "netflix",
+    "spotify",
+    "apple music",
+    "youtube premium",
+    "prime video",
+    "subscription",
+  ],
+  charity: ["charity", "donation", "foundation", "ngo", "church"],
   other: [],
 };
 

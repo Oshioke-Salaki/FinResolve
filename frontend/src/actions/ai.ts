@@ -7,6 +7,7 @@ import {
   type AIAction,
   CATEGORY_META,
   CURRENCIES,
+  type SpendingCategory,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
 
@@ -30,8 +31,33 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
   const currencySymbol = currencyConfig?.symbol || "$";
 
   // Calculate totals
-  const totalSpending = spendingSummary.reduce((sum, s) => sum + s.total, 0);
-  const monthlyIncome = income?.amount || 0;
+  // Get current date info
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentDateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD format
+  const daysLeftInMonth =
+    new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() -
+    now.getDate();
+
+  // CALCULATE LIVE METRICS FROM RAW DATA
+  // This ensures "Where is my money going?" is always accurate for the current month
+  const currentMonthExpenses = profile.monthlySpending.filter((t) => {
+    if (!t.date) return false;
+    const d = new Date(t.date);
+    return (
+      d.getFullYear() === currentYear &&
+      d.getMonth() === currentMonth &&
+      t.type === "expense"
+    );
+  });
+
+  const totalSpending = currentMonthExpenses.reduce(
+    (sum, t) => sum + t.amount,
+    0,
+  );
+
+  const monthlyIncome = profile.income?.amount || 0;
 
   // Calculate Account Assets
   const accounts = profile.accounts || [];
@@ -55,8 +81,7 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
     )
     .join("\n");
 
-  // Calculate Safe to Spend (Logic aligned with FinancialPulseCards)
-  // Determine budget basis
+  // Calculate Safe to Spend
   const hasBudgets = (profile.budgets || []).length > 0;
   let budgetLimit = monthlyIncome;
   let budgetSpent = totalSpending;
@@ -69,25 +94,22 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
   }
 
   const budgetRemaining = Math.max(0, budgetLimit - budgetSpent);
-
-  // Get current date info
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentDateStr = now.toISOString().split("T")[0]; // YYYY-MM-DD format
-  const daysLeftInMonth =
-    new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() -
-    now.getDate();
-
   const safeDailySpend =
     daysLeftInMonth > 0 ? budgetRemaining / daysLeftInMonth : 0;
 
-  // Format top spending categories
-  const topCategories = [...spendingSummary]
-    .sort((a, b) => b.total - a.total)
+  // Format top spending categories (Live calculation)
+  const categoryTotals: Record<string, number> = {};
+  currentMonthExpenses.forEach((t) => {
+    categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+  });
+
+  const topCategories = Object.entries(categoryTotals)
+    .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
-    .map((s) => {
-      const meta = CATEGORY_META[s.category];
-      return `${meta.emoji} ${meta.label}: ${formatCurrency(s.total, currency)}`;
+    .map(([cat, amount]) => {
+      const meta =
+        CATEGORY_META[cat as SpendingCategory] || CATEGORY_META.other;
+      return `${meta.emoji} ${meta.label}: ${formatCurrency(amount, currency)}`;
     })
     .join("\n  ");
 
@@ -102,6 +124,53 @@ function buildSystemPrompt(profile: UserFinancialProfile): string {
           .join("\n  ")
       : "No savings goals set yet";
 
+  // --- NEW: HISTORICAL DATA FOR AI ---
+  // Group all transactions by Month-Year
+  const monthlyHistory: Record<
+    string,
+    { income: number; expenses: number; topCats: Record<string, number> }
+  > = {};
+  const allTransactions = [...profile.monthlySpending].sort(
+    (a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime(),
+  );
+
+  allTransactions.forEach((t) => {
+    if (!t.date) return;
+    const d = new Date(t.date);
+    const key = `${d.toLocaleString("default", { month: "long" })} ${d.getFullYear()}`;
+
+    if (!monthlyHistory[key]) {
+      monthlyHistory[key] = { income: 0, expenses: 0, topCats: {} };
+    }
+
+    if (t.type === "income") {
+      monthlyHistory[key].income += t.amount;
+    } else {
+      monthlyHistory[key].expenses += t.amount;
+      monthlyHistory[key].topCats[t.category] =
+        (monthlyHistory[key].topCats[t.category] || 0) + t.amount;
+    }
+  });
+
+  const historyList = Object.entries(monthlyHistory)
+    .slice(0, 6) // Last 6 months with data
+    .map(([month, data]) => {
+      const topCat = Object.entries(data.topCats)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 2)
+        .map(([cat]) => CATEGORY_META[cat as SpendingCategory]?.label)
+        .join(", ");
+      return `- ${month}: Income ${formatCurrency(data.income, currency)}, Spent ${formatCurrency(data.expenses, currency)}${topCat ? ` (Mainly: ${topCat})` : ""}`;
+    })
+    .join("\n");
+
+  // Format Recent Transactions (last 40)
+  const recentTransactions = allTransactions.slice(0, 40).map((t) => {
+    const acc = accounts.find((a) => a.id === t.accountId);
+    const date = t.date ? new Date(t.date).toLocaleDateString() : "No date";
+    return `- ${date}: ${t.merchantName || t.description} | ${formatCurrency(t.amount, currency)} | ${CATEGORY_META[t.category as SpendingCategory]?.label || t.category} | ${acc?.name || "Unknown Account"}`;
+  });
+
   return `You are FinResolve AI, a friendly and supportive financial coach. You help users understand their money, budget better, and achieve their savings goals.
 
 IMPORTANT - Current Date: ${currentDateStr} (Year: ${currentYear})
@@ -111,7 +180,7 @@ User's Financial Context:
 - Name: ${name || "Friend"}
 - Net Worth (Total Cash): ${formatCurrency(netWorth, currency)}
 - Monthly Income: ${monthlyIncome > 0 ? formatCurrency(monthlyIncome, currency) : "Not set"}
-- Total Monthly Spending: ${formatCurrency(totalSpending, currency)}
+- Current Month's Spending: ${formatCurrency(totalSpending, currency)}
 - Committed Fixed Costs (Bills): ${formatCurrency(committedSpend, currency)}
 - 'Safe to Spend' Remainder: ${formatCurrency(budgetRemaining, currency)} (${formatCurrency(safeDailySpend, currency)}/day for ${daysLeftInMonth} days)
 
@@ -130,6 +199,12 @@ Savings Goals:
 
 Budgets:
   ${profile.budgets.length > 0 ? profile.budgets.map((b) => `- ${b.category}: ${formatCurrency(b.limit, currency)} limit (${formatCurrency(b.spent, currency)} spent)`).join("\n  ") : "No budgets set yet"}
+
+Historical Summaries:
+${historyList || "No historical data available yet"}
+
+Recent Detailed Transactions:
+${recentTransactions.join("\n") || "No recent transactions"}
 
 Guidelines:
 - Be warm, supportive, and non-judgmental about money

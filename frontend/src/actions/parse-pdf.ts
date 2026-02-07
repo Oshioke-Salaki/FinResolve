@@ -68,13 +68,21 @@ export async function parsePDFStatement(
     ${truncatedText}
     """
 
+    Current Year: ${new Date().getFullYear()}
+    Current Date: ${new Date().toISOString().split("T")[0]}
+
     Instructions:
     1. Identify the transaction table or list.
     2. Extract Date, Description, Amount, and Type (Credit/Debit or Income/Expense).
-    3. Ignore header info (address, account summary) and footer info.
-    4. For Amount: Ensure it is a positive number.
-    5. For Type: Determine if money left the account (debit) or entered (credit).
-    6. Return a JSON object with a key "transactions" containing an array of objects.
+    3. IMPORTANT FOR DATES: 
+       - Bank statements often omit the year on individual lines. Look at the entire text to find the statement period or year.
+       - Ensure the "date" field in your output corresponds to the ACTUAL transaction date from the statement.
+       - If the month is late in the year (e.g., December) and the current date is early (e.g., February), be careful to use the correct previous year if applicable.
+       - Output dates ALWAYS in YYYY-MM-DD format.
+    4. Ignore header info (address, account summary) and footer info.
+    5. For Amount: Ensure it is a positive number.
+    6. For Type: Determine if money left the account (debit) or entered (credit).
+    7. Return a JSON object with a key "transactions" containing an array of objects.
     
     Output Format (JSON):
     {

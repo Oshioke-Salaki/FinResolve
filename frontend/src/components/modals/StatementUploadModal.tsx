@@ -426,111 +426,117 @@ export function StatementUploadModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {transactions.map((t) => (
-                      <tr
-                        key={t.id}
-                        onClick={() => toggleTransaction(t.id)}
-                        className={`group hover:bg-slate-50/80 transition-all cursor-pointer ${
-                          t.confirmed === false
-                            ? "opacity-40 grayscale bg-slate-50"
-                            : ""
-                        }`}
-                      >
-                        <td className="p-4">
-                          <div
-                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                              t.confirmed !== false
-                                ? "bg-primary border-primary text-white"
-                                : "border-slate-300 bg-white group-hover:border-primary/50"
-                            }`}
-                          >
-                            {t.confirmed !== false && (
-                              <Check className="w-3.5 h-3.5" />
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 text-slate-500 text-xs font-medium whitespace-nowrap">
-                          {new Date(t.date).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            {/* Merchant Avatar */}
-                            <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                                t.type === "credit"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
-                              {(t.merchantName || t.description)
-                                .substring(0, 1)
-                                .toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-semibold text-slate-800 flex items-center gap-2 truncate">
-                                <span className="truncate">
-                                  {t.merchantName || t.description}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                {t.merchantName &&
-                                  t.merchantName !== t.description && (
-                                    <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
-                                      {t.description}
-                                    </span>
-                                  )}
-                                {t.isDuplicate && (
-                                  <span className="text-[10px] bg-amber-50 text-amber-600 border border-amber-100 px-1.5 rounded-full font-medium">
-                                    Duplicate
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td
-                          className="p-4"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="relative group/select">
-                            <select
-                              value={t.suggestedCategory || "other"}
-                              onChange={(e) =>
-                                updateCategory(
-                                  t.id,
-                                  e.target.value as SpendingCategory,
-                                )
-                              }
-                              className="appearance-none bg-slate-50 hover:bg-slate-100 transition-colors text-xs font-medium text-slate-700 border-none rounded-lg py-1.5 pl-3 pr-8 w-full cursor-pointer focus:ring-2 focus:ring-primary/20"
-                            >
-                              {Object.entries(CATEGORY_META).map(
-                                ([key, meta]) => (
-                                  <option key={key} value={key}>
-                                    {meta.emoji} {meta.label}
-                                  </option>
-                                ),
-                              )}
-                            </select>
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                              <ChevronRight className="w-3 h-3 rotate-90" />
-                            </div>
-                          </div>
-                        </td>
-                        <td
-                          className={`p-4 text-right font-bold tabular-nums ${
-                            t.type === "credit"
-                              ? "text-green-600"
-                              : "text-slate-900"
+                    {[...transactions]
+                      .sort(
+                        (a, b) =>
+                          new Date(b.date).getTime() -
+                          new Date(a.date).getTime(),
+                      )
+                      .map((t) => (
+                        <tr
+                          key={t.id}
+                          onClick={() => toggleTransaction(t.id)}
+                          className={`group hover:bg-slate-50/80 transition-all cursor-pointer ${
+                            t.confirmed === false
+                              ? "opacity-40 grayscale bg-slate-50"
+                              : ""
                           }`}
                         >
-                          {t.type === "credit" ? "+" : ""}
-                          {formatCurrency(t.amount, currency)}
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="p-4">
+                            <div
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                                t.confirmed !== false
+                                  ? "bg-primary border-primary text-white"
+                                  : "border-slate-300 bg-white group-hover:border-primary/50"
+                              }`}
+                            >
+                              {t.confirmed !== false && (
+                                <Check className="w-3.5 h-3.5" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4 text-slate-500 text-xs font-medium whitespace-nowrap">
+                            {new Date(t.date).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              {/* Merchant Avatar */}
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                                  t.type === "credit"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {(t.merchantName || t.description)
+                                  .substring(0, 1)
+                                  .toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-semibold text-slate-800 flex items-center gap-2 truncate">
+                                  <span className="truncate">
+                                    {t.merchantName || t.description}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {t.merchantName &&
+                                    t.merchantName !== t.description && (
+                                      <span className="text-[10px] text-slate-400 truncate max-w-[120px]">
+                                        {t.description}
+                                      </span>
+                                    )}
+                                  {t.isDuplicate && (
+                                    <span className="text-[10px] bg-amber-50 text-amber-600 border border-amber-100 px-1.5 rounded-full font-medium">
+                                      Duplicate
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td
+                            className="p-4"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="relative group/select">
+                              <select
+                                value={t.suggestedCategory || "other"}
+                                onChange={(e) =>
+                                  updateCategory(
+                                    t.id,
+                                    e.target.value as SpendingCategory,
+                                  )
+                                }
+                                className="appearance-none bg-slate-50 hover:bg-slate-100 transition-colors text-xs font-medium text-slate-700 border-none rounded-lg py-1.5 pl-3 pr-8 w-full cursor-pointer focus:ring-2 focus:ring-primary/20"
+                              >
+                                {Object.entries(CATEGORY_META).map(
+                                  ([key, meta]) => (
+                                    <option key={key} value={key}>
+                                      {meta.emoji} {meta.label}
+                                    </option>
+                                  ),
+                                )}
+                              </select>
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                <ChevronRight className="w-3 h-3 rotate-90" />
+                              </div>
+                            </div>
+                          </td>
+                          <td
+                            className={`p-4 text-right font-bold tabular-nums ${
+                              t.type === "credit"
+                                ? "text-green-600"
+                                : "text-slate-900"
+                            }`}
+                          >
+                            {t.type === "credit" ? "+" : ""}
+                            {formatCurrency(t.amount, currency)}
+                          </td>
+                        </tr>
+                      ))}
                   </tbody>
                 </table>
               </div>

@@ -26,6 +26,10 @@ const CATEGORY_COLORS: Record<SpendingCategory, string> = {
   salary: "#16a34a",
   business: "#0891b2",
   gift: "#db2777",
+  travel: "#8b5cf6",
+  insurance: "#94a3b8",
+  subscriptions: "#f59e0b",
+  charity: "#14b8a6",
 };
 
 function ChartSkeleton() {

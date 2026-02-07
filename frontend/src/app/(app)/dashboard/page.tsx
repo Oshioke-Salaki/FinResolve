@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { StatementUploadModal } from "@/components/modals/StatementUploadModal";
+import { ReportModal } from "@/components/reports/ReportModal";
+import { AddTransactionModal } from "@/components/modals/AddTransactionModal";
+import { Button } from "@/components/ui/button";
+import { Plus, Upload } from "lucide-react";
 import { useFinancial } from "@/contexts/FinancialContext";
 import { CATEGORY_META } from "@/lib/types";
 import { formatCurrency } from "@/lib/parseInput";
@@ -18,6 +22,7 @@ import {
   type UpdateGoalPayload,
   type CreateGoalPayload,
   type CreateBudgetPayload,
+  type SpendingCategory,
 } from "@/lib/types";
 
 // New components
@@ -83,6 +88,7 @@ function DashboardContent() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [isChatDrawerOpen, setIsChatDrawerOpen] = useState(false);
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const hasInitialized = useRef(false);
 
   // AI contextual nudge based on financial state
@@ -337,6 +343,33 @@ function DashboardContent() {
     setMessages((prev) => [...prev, msg]);
   };
 
+  const handleAddTransaction = (data: {
+    amount: string;
+    category: string;
+    description: string;
+    accountId: string;
+  }) => {
+    addSpending({
+      id: crypto.randomUUID(),
+      category: data.category as SpendingCategory,
+      amount: parseFloat(data.amount),
+      confidence: "high",
+      source: "manual",
+      description: data.description || "Manual Expense",
+      date: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      accountId: data.accountId,
+      type: "expense",
+    });
+
+    const msg: Message = {
+      id: Date.now().toString(),
+      role: "assistant",
+      content: `I've logged that expense of ${data.amount} for ${data.category}.`,
+    };
+    setMessages((prev) => [...prev, msg]);
+  };
+
   // Command bar handlers
   const handleCommandSearch = (query: string) => {
     handleSend(query);
@@ -391,6 +424,26 @@ function DashboardContent() {
         {/* Left Panel - Data (70%) */}
         <div className="flex-1 lg:w-[70%] overflow-y-auto p-6 pb-24 lg:pb-6">
           <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                <p className="text-muted-foreground">
+                  Welcome back, {profile.name || "User"}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <ReportModal />
+                {/* <Button
+                  variant="outline"
+                  onClick={() => setShowUploadModal(true)}
+                >
+                  <Upload className="mr-2 h-4 w-4" /> Import Stats
+                </Button> */}
+                {/* <Button onClick={() => setIsAddTransactionOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> Add Expense
+                </Button> */}
+              </div>
+            </div>
             {/* Account Overview */}
             <AccountCards />
 
@@ -403,7 +456,6 @@ function DashboardContent() {
               <RecurringBills isPreview />
             </div>
 
-            {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="h-[400px]">
                 <TrendChart />
@@ -456,6 +508,12 @@ function DashboardContent() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onComplete={handleUploadComplete}
+      />
+
+      <AddTransactionModal
+        isOpen={isAddTransactionOpen}
+        onClose={() => setIsAddTransactionOpen(false)}
+        onAdd={handleAddTransaction}
       />
 
       {/* FinResolve Score Modal */}

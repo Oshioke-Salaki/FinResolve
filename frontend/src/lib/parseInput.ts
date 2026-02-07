@@ -148,12 +148,7 @@ const CATEGORY_KEYWORDS: Record<SpendingCategory, string[]> = {
     "fees",
     "learning",
   ],
-  savings: [
-    "savings",
-    "save",
-    "saving",
-    "emergency fund",
-  ],
+  savings: ["savings", "save", "saving", "emergency fund"],
   family: ["family", "kids", "children", "baby", "parents", "wife", "husband"],
   debt: ["debt", "loan", "owing", "credit", "borrow", "refund", "repay"],
   personal_care: [
@@ -187,6 +182,26 @@ const CATEGORY_KEYWORDS: Record<SpendingCategory, string[]> = {
     "freelance",
   ],
   gift: ["gift", "gifts", "present", "donation", "charity", "tithe"],
+  travel: [
+    "travel",
+    "flight",
+    "hotel",
+    "airbnb",
+    "vacation",
+    "trip",
+    "holiday",
+  ],
+  insurance: ["insurance", "premium", "coverage", "policy"],
+  subscriptions: [
+    "subscription",
+    "netflix",
+    "spotify",
+    "apple music",
+    "youtube premium",
+    "prime video",
+    "disney+",
+  ],
+  charity: ["charity", "donation", "foundation", "tithe", "offering", "ngo"],
   other: ["other", "miscellaneous", "misc"],
 };
 
