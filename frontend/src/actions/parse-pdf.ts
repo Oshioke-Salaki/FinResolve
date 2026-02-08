@@ -29,52 +29,25 @@ export type PDFParseResult = {
 export async function parsePDFStatement(
   formData: FormData,
 ): Promise<PDFParseResult> {
-  // 1. Initial Logging for Deployment Debugging
-  console.log("[parsePDFStatement] Starting PDF parse server action...");
+  // 1. Initial Logging
+  console.log("[parsePDFStatement] Starting PDF parse with UNPDF...");
 
   const file = formData.get("file") as File;
   if (!file) return { success: false, error: "No file uploaded" };
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const data = new Uint8Array(arrayBuffer);
 
-    // 2. Dynamic Library Load (Prevents crashing other server actions)
-    console.log("[parsePDFStatement] Dynamically loading pdfjs-dist...");
+    // 2. Extract Text using unpdf (optimized for Vercel/Serverless)
+    console.log("[parsePDFStatement] Extracting text using unpdf...");
 
-    // We use the legacy build for better Node compatibility on Vercel
-    // @ts-ignore
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // We import dynamically to keep the initial server action bundle light
+    const { extractText } = await import("unpdf");
 
-    // THE NUCLEAR OPTION: Import the worker engine directly and pass it to the "workerPort"
-    // This bypasses all file path and URL resolution logic entirely.
-    // @ts-ignore
-    const pdfWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-    (pdfjs.GlobalWorkerOptions as any).workerPort = pdfWorker;
-
-    const version = pdfjs.version || "5.4.296";
-    console.log(
-      `[parsePDFStatement] Loading document (Version: ${version}) with Internal Worker Port...`,
-    );
-    const loadingTask = pdfjs.getDocument({
-      data,
-      disableWorker: true, // Still keep this to force sync execution
-      verbosity: 0,
-    } as any);
-
-    const pdf = await loadingTask.promise;
-    console.log(`[parsePDFStatement] PDF loaded: ${pdf.numPages} pages`);
-
-    let fullText = "";
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        // @ts-ignore
-        .map((item: any) => item.str)
-        .join(" ");
-      fullText += pageText + "\n";
-    }
+    const result = await extractText(new Uint8Array(arrayBuffer));
+    const fullText = Array.isArray(result.text)
+      ? result.text.join("\n")
+      : result.text;
 
     if (!fullText || fullText.trim().length === 0) {
       console.warn("[parsePDFStatement] No text extracted from PDF");
@@ -152,14 +125,9 @@ export async function parsePDFStatement(
     console.error("[parsePDFStatement] CRITICAL ERROR DETAILS:", error);
     let errorMessage = error instanceof Error ? error.message : String(error);
 
-    if (errorMessage.includes("worker")) {
-      errorMessage =
-        "PDF Worker Error: The serverless environment blocked the PDF engine. We are working on a fix.";
-    }
-
     return {
       success: false,
-      error: `PDF Parsing error: ${errorMessage}`,
+      error: `PDF Parsing error (unpdf): ${errorMessage}`,
     };
   }
 }
